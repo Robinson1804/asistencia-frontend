@@ -2,22 +2,24 @@ export type AttendanceStatus = 'Presente' | 'Tardanza' | 'Falta' | 'No Registrad
 
 export interface Employee {
   id: string;
-  ApellidosNombres: string;
-  DNI: string;
-  Email: string;
-  Telefono: string;
-  Activo: boolean;
+  apellidosNombres: string;
+  dni: string;
+  email: string;
+  telefono: string;
+  activo: boolean;
   avatarUrl?: string;
-  Cargo?: string;
-  DTTID?: string;
-  ProyectoID?: string;
-  RelacionDivisionID?: string;
-  TipoContratoID?: string;
-  ModalidadID?: string;
-  SedeID?: string;
-  FechaInicio?: any; 
-  FechaFin?: any;
-  FechaRegistro?: any;
+  proyecto?: {
+    nombre: string;
+  };
+  dttId?: string;
+  proyectoId?: string;
+  relacionDivisionId?: string;
+  tipoContratoId?: string;
+  modalidadId?: string;
+  sedeId?: string;
+  fechaInicio?: any; 
+  fechaFin?: any;
+  createdAt?: any;
 }
 
 export type AttendanceRecord = {

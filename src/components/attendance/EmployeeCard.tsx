@@ -21,7 +21,7 @@ export function EmployeeCard({ employee, currentStatus, onStatusChange }: Employ
     { value: 'Falta', label: 'Falta', icon: XCircle, color: 'text-destructive', borderColor: 'border-destructive' },
   ];
   
-  const employeeName = employee.ApellidosNombres || "Empleado";
+  const employeeName = employee.apellidosNombres || "Empleado";
 
   return (
     <Card className="shadow-md hover:shadow-xl transition-all duration-300 ease-in-out bg-card/80 backdrop-blur-sm overflow-hidden">
@@ -32,7 +32,7 @@ export function EmployeeCard({ employee, currentStatus, onStatusChange }: Employ
         </Avatar>
         <div className="flex-1">
           <CardTitle className="text-lg font-semibold">{employeeName}</CardTitle>
-          <CardDescription className="text-sm">{employee.Cargo}</CardDescription>
+          <CardDescription className="text-sm">{employee.proyecto?.nombre}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">

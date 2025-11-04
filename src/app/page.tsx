@@ -11,7 +11,7 @@ import { collection } from "firebase/firestore";
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
-  const { data: employees = [], loading } = useCollection<Employee>(firestore ? collection(firestore, 'Empleados') : null);
+  const { data: employees = [], loading } = useCollection<Employee>(firestore ? collection(firestore, 'empleados') : null);
   
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
 
