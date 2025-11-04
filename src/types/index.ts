@@ -36,9 +36,15 @@ export interface Sede {
 }
 
 export interface Proyecto {
-  id: string;
+  id:string;
   CodigoProyecto: string;
   NombreProyecto: string;
   Descripcion: string;
   Activo: boolean;
+}
+
+export interface Coordinador {
+  id: string;
+  nombreCoordinador: string;
+  activo: boolean;
 }

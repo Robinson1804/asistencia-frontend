@@ -7,13 +7,14 @@ import { EmployeeCard } from "@/components/attendance/EmployeeCard";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection } from "firebase/firestore";
+import { CoordinatorsList } from "@/components/coordinators/CoordinatorsList";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
   const { data: employeesData = [], loading } = useCollection<Omit<Employee, 'id'>>(firestore ? collection(firestore, 'empleados') : null);
 
-  const employees = useMemo(() => {
+  const employees: Employee[] = useMemo(() => {
     return employeesData.map(emp => ({
       ...emp,
       id: emp.dni, 
@@ -78,6 +79,12 @@ export default function Home() {
               );
             })}
           </div>
+        </section>
+        
+        <Separator className="my-8 bg-border/50" />
+
+        <section>
+          <CoordinatorsList />
         </section>
       </main>
     </div>
