@@ -20,17 +20,19 @@ export function EmployeeCard({ employee, currentStatus, onStatusChange }: Employ
     { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
     { value: 'Falta', label: 'Falta', icon: XCircle, color: 'text-destructive', borderColor: 'border-destructive' },
   ];
+  
+  const employeeName = employee.ApellidosNombres || "Empleado";
 
   return (
     <Card className="shadow-md hover:shadow-xl transition-all duration-300 ease-in-out bg-card/80 backdrop-blur-sm overflow-hidden">
       <CardHeader className="flex flex-row items-center gap-4 p-4">
         <Avatar className="h-16 w-16 border-2 border-primary/20">
-          <AvatarImage src={employee.avatarUrl} alt={employee.name} data-ai-hint="person portrait" />
-          <AvatarFallback className="bg-primary/10 text-primary font-bold">{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+          <AvatarImage src={employee.avatarUrl} alt={employeeName} data-ai-hint="person portrait" />
+          <AvatarFallback className="bg-primary/10 text-primary font-bold">{employeeName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <CardTitle className="text-lg font-semibold">{employee.name}</CardTitle>
-          <CardDescription className="text-sm">{employee.position}</CardDescription>
+          <CardTitle className="text-lg font-semibold">{employeeName}</CardTitle>
+          <CardDescription className="text-sm">{employee.Cargo}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">

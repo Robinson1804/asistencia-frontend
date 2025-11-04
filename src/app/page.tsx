@@ -1,17 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { employees } from "@/lib/data";
-import type { AttendanceRecord, AttendanceStatus } from "@/types";
+import type { AttendanceRecord, AttendanceStatus, Employee } from "@/types";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeCard } from "@/components/attendance/EmployeeCard";
 import { Separator } from "@/components/ui/separator";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection } from "firebase/firestore";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
-  const [attendances, setAttendances] = useState<AttendanceRecord[]>(() =>
-    employees.map(emp => ({ employeeId: emp.id, status: 'No Registrado' }))
-  );
+  const firestore = useFirestore();
+  const { data: employees = [], loading } = useCollection<Employee>(firestore ? collection(firestore, 'Empleados') : null);
+  
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+
+  useEffect(() => {
+    if (employees.length > 0) {
+      setAttendances(
+        employees.map(emp => ({ employeeId: emp.id, status: 'No Registrado' }))
+      );
+    }
+  }, [employees]);
+
 
   useEffect(() => {
     const today = new Date();
@@ -46,13 +57,14 @@ export default function Home() {
 
         <section>
           <h2 className="text-3xl font-bold mb-6 font-headline text-center md:text-left">Lista de Personal</h2>
+          {loading && <p>Cargando empleados...</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {employees.map(employee => {
               const attendance = attendances.find(a => a.employeeId === employee.id);
               return (
                 <EmployeeCard
                   key={employee.id}
-                  employee={employee}
+                  employee={{...employee, avatarUrl: `https://i.pravatar.cc/150?u=${employee.id}`}}
                   currentStatus={attendance?.status || 'No Registrado'}
                   onStatusChange={handleStatusChange}
                 />
