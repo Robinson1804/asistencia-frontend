@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { AttendanceRecord, AttendanceStatus, Employee } from "@/types";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeCard } from "@/components/attendance/EmployeeCard";
@@ -11,7 +11,14 @@ import { collection } from "firebase/firestore";
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
-  const { data: employees = [], loading } = useCollection<Employee>(firestore ? collection(firestore, 'empleados') : null);
+  const { data: employeesData = [], loading } = useCollection<Omit<Employee, 'id'>>(firestore ? collection(firestore, 'empleados') : null);
+
+  const employees = useMemo(() => {
+    return employeesData.map(emp => ({
+      ...emp,
+      id: emp.dni, 
+    }));
+  }, [employeesData]);
   
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
 
