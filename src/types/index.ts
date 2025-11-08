@@ -51,9 +51,9 @@ export interface AttendanceRecord  {
 
 export interface Sede {
   id: string;
-  NombreSede: string;
-  Direccion: string;
-  Activo: boolean;
+  nombreSede: string;
+  direccion: string;
+  activo: boolean;
 }
 
 export interface Proyecto {
