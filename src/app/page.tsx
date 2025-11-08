@@ -4,15 +4,17 @@ import { useState, useEffect, useMemo } from "react";
 import type { AttendanceRecord, AttendanceStatus, Employee, Sede } from "@/types";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeRow } from "@/components/attendance/EmployeeRow";
+import { DatePicker } from "@/components/attendance/DatePicker";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, writeBatch, serverTimestamp, query, where, getDocs, Timestamp, doc } from "firebase/firestore";
+import { collection, writeBatch, Timestamp, query, where, getDocs, doc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
+import { startOfDay, endOfDay } from 'date-fns';
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
@@ -20,6 +22,7 @@ export default function Home() {
   const [selectedSede, setSelectedSede] = useState<string>("todos");
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(
     firestore ? collection(firestore, 'empleados') : null
@@ -43,44 +46,47 @@ export default function Home() {
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
 
-  // Fetch today's attendances when component mounts or firestore instance changes
   useEffect(() => {
-    const fetchTodaysAttendances = async () => {
+    const fetchAttendancesForDate = async () => {
       if (!firestore) return;
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const startOfToday = Timestamp.fromDate(today);
-
-      today.setHours(23, 59, 59, 999);
-      const endOfToday = Timestamp.fromDate(today);
+      const startOfSelectedDay = Timestamp.fromDate(startOfDay(selectedDate));
+      const endOfSelectedDay = Timestamp.fromDate(endOfDay(selectedDate));
 
       const q = query(
         collection(firestore, "asistencias"),
-        where("timestamp", ">=", startOfToday),
-        where("timestamp", "<=", endOfToday)
+        where("timestamp", ">=", startOfSelectedDay),
+        where("timestamp", "<=", endOfSelectedDay)
       );
       
-      const querySnapshot = await getDocs(q);
-      const todaysAttendances = new Map<string, AttendanceStatus>();
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as AttendanceRecord;
-        todaysAttendances.set(data.employeeId, data.status);
-      });
-      setAttendances(new Map(todaysAttendances));
-      setInitialAttendances(new Map(todaysAttendances));
+      try {
+        const querySnapshot = await getDocs(q);
+        const todaysAttendances = new Map<string, AttendanceStatus>();
+        querySnapshot.forEach((doc) => {
+          const data = doc.data() as AttendanceRecord;
+          todaysAttendances.set(data.employeeId, data.status);
+        });
+        setAttendances(new Map(todaysAttendances));
+        setInitialAttendances(new Map(todaysAttendances));
+      } catch(error) {
+        console.error("Error fetching attendances: ", error);
+        toast({
+          variant: "destructive",
+          title: "Error al cargar asistencias",
+          description: "No se pudieron cargar los registros de la fecha seleccionada.",
+        });
+      }
     };
 
-    fetchTodaysAttendances();
-  }, [firestore]);
+    fetchAttendancesForDate();
+  }, [firestore, selectedDate, toast]);
 
 
   useEffect(() => {
-    const today = new Date();
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const formattedDate = new Intl.DateTimeFormat('es-ES', options).format(today);
+    const formattedDate = new Intl.DateTimeFormat('es-ES', options).format(selectedDate);
     setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
-  }, []);
+  }, [selectedDate]);
 
   const handleStatusChange = (employeeId: string, status: AttendanceStatus) => {
     setAttendances(prevAttendances => new Map(prevAttendances).set(employeeId, status));
@@ -107,18 +113,20 @@ export default function Home() {
     setIsSaving(true);
     const batch = writeBatch(firestore);
 
+    const attendanceTimestamp = Timestamp.fromDate(selectedDate);
+
     changes.forEach((status, employeeId) => {
       const newAttendanceRef = doc(collection(firestore, 'asistencias'));
       batch.set(newAttendanceRef, {
         employeeId,
         status,
-        timestamp: serverTimestamp()
+        timestamp: attendanceTimestamp
       });
     });
 
     try {
       await batch.commit();
-      setInitialAttendances(new Map(attendances)); // Update initial state after successful save
+      setInitialAttendances(new Map(attendances)); 
       toast({
         title: "Asistencia guardada",
         description: `Se guardaron ${changes.size} registros de asistencia.`,
@@ -142,7 +150,7 @@ export default function Home() {
       <main className="container mx-auto p-4 md:p-8">
         <header className="mb-8 text-center md:text-left">
           <h1 className="text-4xl font-bold text-primary mb-1 font-headline tracking-tight">AsistenciaYA</h1>
-          {currentDate && <p className="text-lg text-muted-foreground">Hoy es {currentDate}</p>}
+          {currentDate && <p className="text-lg text-muted-foreground">Registrando para el {currentDate}</p>}
         </header>
 
         <section className="mb-8">
@@ -154,9 +162,13 @@ export default function Home() {
         <section>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-3xl font-bold font-headline text-center md:text-left">Lista de Personal</h2>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
+               <div className="flex items-center gap-2">
+                <Label htmlFor="date-filter">Fecha:</Label>
+                <DatePicker date={selectedDate} setDate={setSelectedDate} />
+              </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="sede-filter">Filtrar por Sede:</Label>
+                <Label htmlFor="sede-filter">Sede:</Label>
                 <Select value={selectedSede} onValueChange={setSelectedSede}>
                   <SelectTrigger className="w-[180px]" id="sede-filter">
                     <SelectValue placeholder="Todas las sedes" />
