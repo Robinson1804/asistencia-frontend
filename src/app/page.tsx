@@ -6,7 +6,7 @@ import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, writeBatch, serverTimestamp, query, where, getDocs, Timestamp } from "firebase/firestore";
+import { collection, writeBatch, serverTimestamp, query, where, getDocs, Timestamp, doc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
@@ -106,10 +106,9 @@ export default function Home() {
 
     setIsSaving(true);
     const batch = writeBatch(firestore);
-    const asistenciasRef = collection(firestore, 'asistencias');
 
     changes.forEach((status, employeeId) => {
-      const newAttendanceRef = collection(firestore, 'asistencias').doc();
+      const newAttendanceRef = doc(collection(firestore, 'asistencias'));
       batch.set(newAttendanceRef, {
         employeeId,
         status,
