@@ -1,9 +1,9 @@
 
 export const firebaseConfig = {
-  apiKey: "API_KEY",
+  apiKey: "AIzaSyC...Y",
   authDomain: "control-de-acceso-ca993.firebaseapp.com",
   projectId: "control-de-acceso-ca993",
   storageBucket: "control-de-acceso-ca993.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID",
+  messagingSenderId: "493...7",
+  appId: "1:493...b7",
 };

@@ -13,20 +13,17 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
 
-  // Se usa 'any' temporalmente para simplificar y luego se mapea a Employee
-  const { data: employeesData = [], loading } = useCollection<any>(
+  const { data: employeesData = [], loading } = useCollection<Employee>(
     firestore ? collection(firestore, 'empleados') : null
   );
 
   const employees: Employee[] = useMemo(() => {
-    // El 'id' se añade en el hook useCollection, así que solo mapeamos el resto
-    return employeesData.map(emp => emp as Employee);
+    return employeesData.map(emp => ({...emp, id: emp.dni}));
   }, [employeesData]);
 
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    // Crear attendances para cada empleado cuando la data de empleados cambie
     if (employees.length > 0) {
         const initialAttendances = employees.map(emp => ({
             employeeId: emp.id,
@@ -72,12 +69,12 @@ export default function Home() {
           {loading && <p>Cargando empleados...</p>}
           {!loading && employees.length === 0 && <p>No se encontraron empleados.</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {employees.map(employee => {
+            {employees.map((employee, index) => {
               const attendance = attendances.find(a => a.employeeId === employee.id);
               return (
                 <EmployeeCard
                   key={employee.id}
-                  employee={{ ...employee, avatarUrl: `https://i.pravatar.cc/150?u=${employee.dni}` }}
+                  employee={{ ...employee, avatarUrl: `https://picsum.photos/seed/${index + 1}/150/150` }}
                   currentStatus={attendance?.status || 'No Registrado'}
                   onStatusChange={handleStatusChange}
                 />
