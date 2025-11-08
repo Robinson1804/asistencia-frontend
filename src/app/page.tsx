@@ -3,18 +3,21 @@
 import { useState, useEffect, useMemo } from "react";
 import type { AttendanceRecord, AttendanceStatus, Employee, Sede } from "@/types";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
-import { EmployeeCard } from "@/components/attendance/EmployeeCard";
+import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { CoordinatorsList } from "@/components/coordinators/CoordinatorsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
   const [selectedSede, setSelectedSede] = useState<string>("todos");
+  const { toast } = useToast();
 
   const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(
     firestore ? collection(firestore, 'empleados') : null
@@ -35,20 +38,39 @@ export default function Home() {
     return employees.filter(employee => employee.sede?.nombre === selectedSede);
   }, [employees, selectedSede]);
 
-  const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+  const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
 
+  // Fetch today's attendances when component mounts or firestore instance changes
   useEffect(() => {
-    if (filteredEmployees.length > 0) {
-        const initialAttendances = filteredEmployees.map(emp => ({
-            employeeId: emp.id,
-            status: 'No Registrado' as AttendanceStatus
-        }));
-        setAttendances(initialAttendances);
-    } else {
-        setAttendances([]);
-    }
-  }, [filteredEmployees]); 
-   
+    const fetchTodaysAttendances = async () => {
+      if (!firestore) return;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startOfToday = Timestamp.fromDate(today);
+
+      today.setHours(23, 59, 59, 999);
+      const endOfToday = Timestamp.fromDate(today);
+
+      const q = query(
+        collection(firestore, "asistencias"),
+        where("timestamp", ">=", startOfToday),
+        where("timestamp", "<=", endOfToday)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const todaysAttendances = new Map<string, AttendanceStatus>();
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as AttendanceRecord;
+        todaysAttendances.set(data.employeeId, data.status);
+      });
+      setAttendances(todaysAttendances);
+    };
+
+    fetchTodaysAttendances();
+  }, [firestore]);
+
+
   useEffect(() => {
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -56,15 +78,48 @@ export default function Home() {
     setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
   }, []);
 
-  const handleStatusChange = (employeeId: string, status: AttendanceStatus) => {
-    setAttendances(prevAttendances =>
-      prevAttendances.map(att =>
-        att.employeeId === employeeId
-          ? { ...att, status, timestamp: new Date() }
-          : att
-      )
-    );
+  const handleStatusChange = async (employeeId: string, status: AttendanceStatus) => {
+    if (!firestore) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudo conectar a la base de datos.",
+        });
+        return;
+    }
+
+    // Optimistically update UI
+    setAttendances(prevAttendances => new Map(prevAttendances).set(employeeId, status));
+
+    try {
+        await addDoc(collection(firestore, 'asistencias'), {
+            employeeId,
+            status,
+            timestamp: serverTimestamp()
+        });
+        toast({
+            title: "Asistencia registrada",
+            description: `Se guardó el estado de ${status} para el empleado.`,
+        });
+    } catch (error) {
+        console.error("Error writing document: ", error);
+        // Revert UI change on error
+        setAttendances(prevAttendances => {
+            const newAttendances = new Map(prevAttendances);
+            // This is a simplified rollback, you might need a more robust solution
+            // depending on whether you want to revert to a 'No Registrado' state or previous state
+            newAttendances.delete(employeeId); 
+            return newAttendances;
+        });
+        toast({
+            variant: "destructive",
+            title: "Error al registrar",
+            description: "No se pudo guardar la asistencia. Inténtalo de nuevo.",
+        });
+    }
   };
+
+  const attendanceArray = Array.from(attendances.values());
 
   return (
     <div className="min-h-screen bg-background/80 backdrop-blur-sm">
@@ -75,7 +130,7 @@ export default function Home() {
         </header>
 
         <section className="mb-8">
-          <AttendanceSummary attendances={attendances} totalEmployees={filteredEmployees.length} />
+          <AttendanceSummary attendances={attendanceArray} totalEmployees={filteredEmployees.length} />
         </section>
 
         <Separator className="my-8 bg-border/50" />
@@ -105,18 +160,28 @@ export default function Home() {
           
           {loadingEmployees && <p>Cargando empleados...</p>}
           {!loadingEmployees && filteredEmployees.length === 0 && selectedSede !== 'todos' && <p>No se encontraron empleados para la sede seleccionada.</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEmployees.map((employee, index) => {
-              const attendance = attendances.find(a => a.employeeId === employee.id);
-              return (
-                <EmployeeCard
-                  key={employee.id}
-                  employee={{ ...employee, avatarUrl: `https://picsum.photos/seed/${index + 1}/150/150` }}
-                  currentStatus={attendance?.status || 'No Registrado'}
-                  onStatusChange={handleStatusChange}
-                />
-              );
-            })}
+          
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <Table>
+              <TableHeader>
+                <UiTableRow>
+                  <TableHead className="w-[120px]">Avatar</TableHead>
+                  <TableHead>Apellidos y Nombres</TableHead>
+                  <TableHead>Proyecto</TableHead>
+                  <TableHead className="text-center w-[320px]">Estado de Asistencia</TableHead>
+                </UiTableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.map((employee, index) => (
+                  <EmployeeRow
+                    key={employee.id}
+                    employee={{ ...employee, avatarUrl: `https://picsum.photos/seed/${index + 1}/150/150` }}
+                    currentStatus={attendances.get(employee.id) || 'No Registrado'}
+                    onStatusChange={handleStatusChange}
+                  />
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </section>
 

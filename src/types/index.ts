@@ -46,7 +46,7 @@ export interface Employee {
 export interface AttendanceRecord  {
   employeeId: string;
   status: AttendanceStatus;
-  timestamp?: Date;
+  timestamp?: any;
 };
 
 export interface Sede {

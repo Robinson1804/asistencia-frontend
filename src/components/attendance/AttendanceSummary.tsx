@@ -1,18 +1,18 @@
 "use client";
 
-import type { AttendanceRecord } from "@/types";
+import type { AttendanceStatus } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserCheck, Clock, UserX, Users } from "lucide-react";
 
 interface AttendanceSummaryProps {
-  attendances: AttendanceRecord[];
+  attendances: AttendanceStatus[];
   totalEmployees: number;
 }
 
 export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSummaryProps) {
-  const presentCount = attendances.filter(a => a.status === 'Presente').length;
-  const tardyCount = attendances.filter(a => a.status === 'Tardanza').length;
-  const absentCount = attendances.filter(a => a.status === 'Falta').length;
+  const presentCount = attendances.filter(a => a === 'Presente').length;
+  const tardyCount = attendances.filter(a => a === 'Tardanza').length;
+  const absentCount = attendances.filter(a => a === 'Falta').length;
 
   const summaryData = [
     { title: "Registrados", count: totalEmployees, icon: Users, color: "text-primary" },
