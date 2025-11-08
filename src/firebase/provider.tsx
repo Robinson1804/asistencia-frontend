@@ -6,9 +6,9 @@ import type { Firestore } from 'firebase/firestore';
 import { initializeFirebase } from './index';
 
 export interface FirebaseContextValue {
-  firebaseApp: FirebaseApp;
-  auth: Auth;
-  firestore: Firestore;
+  firebaseApp: FirebaseApp | null;
+  auth: Auth | null;
+  firestore: Firestore | null;
 }
 
 const FirebaseContext = createContext<FirebaseContextValue | undefined>(
@@ -16,19 +16,18 @@ const FirebaseContext = createContext<FirebaseContextValue | undefined>(
 );
 
 export function FirebaseProvider({ children }: { children: ReactNode }) {
-  const { firebaseApp, auth, firestore } = useMemo(
-    () => initializeFirebase(),
-    []
-  );
+  const services = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return initializeFirebase();
+    }
+    return null;
+  }, []);
 
-  const contextValue = useMemo(
-    () => ({
-      firebaseApp,
-      auth,
-      firestore,
-    }),
-    [firebaseApp, auth, firestore]
-  );
+  const contextValue: FirebaseContextValue = {
+    firebaseApp: services?.firebaseApp || null,
+    auth: services?.auth || null,
+    firestore: services?.firestore || null,
+  };
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -45,6 +44,6 @@ export const useFirebase = () => {
   return context;
 };
 
-export const useFirebaseApp = () => useFirebase().firebaseApp;
-export const useAuth = () => useFirebase().auth;
-export const useFirestore = () => useFirebase().firestore;
+export const useFirebaseApp = () => useFirebase()?.firebaseApp;
+export const useAuth = () => useFirebase()?.auth;
+export const useFirestore = () => useFirebase()?.firestore;
