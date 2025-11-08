@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
-  const [selectedSede, setSelectedSede] = useState<string>("");
+  const [selectedSede, setSelectedSede] = useState<string>("todos");
 
   const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(
     firestore ? collection(firestore, 'empleados') : null
@@ -29,7 +29,7 @@ export default function Home() {
   }, [employeesData]);
 
   const filteredEmployees = useMemo(() => {
-    if (!selectedSede) {
+    if (selectedSede === "todos") {
       return employees;
     }
     return employees.filter(employee => employee.sede?.nombre === selectedSede);
@@ -38,14 +38,16 @@ export default function Home() {
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    if (employees.length > 0) {
-        const initialAttendances = employees.map(emp => ({
+    if (filteredEmployees.length > 0) {
+        const initialAttendances = filteredEmployees.map(emp => ({
             employeeId: emp.id,
             status: 'No Registrado' as AttendanceStatus
         }));
         setAttendances(initialAttendances);
+    } else {
+        setAttendances([]);
     }
-  }, [employees]); 
+  }, [filteredEmployees]); 
    
   useEffect(() => {
     const today = new Date();
@@ -88,7 +90,7 @@ export default function Home() {
                   <SelectValue placeholder="Todas las sedes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las sedes</SelectItem>
+                  <SelectItem value="todos">Todas las sedes</SelectItem>
                   {loadingSedes ? (
                     <SelectItem value="loading" disabled>Cargando...</SelectItem>
                   ) : (
@@ -102,7 +104,7 @@ export default function Home() {
           </div>
           
           {loadingEmployees && <p>Cargando empleados...</p>}
-          {!loadingEmployees && filteredEmployees.length === 0 && <p>No se encontraron empleados para la sede seleccionada.</p>}
+          {!loadingEmployees && filteredEmployees.length === 0 && selectedSede !== 'todos' && <p>No se encontraron empleados para la sede seleccionada.</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEmployees.map((employee, index) => {
               const attendance = attendances.find(a => a.employeeId === employee.id);
