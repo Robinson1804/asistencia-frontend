@@ -6,32 +6,73 @@ import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeCard } from "@/components/attendance/EmployeeCard";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { collection, DocumentData } from "firebase/firestore";
 import { CoordinatorsList } from "@/components/coordinators/CoordinatorsList";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
-  const { data: employeesData = [], loading } = useCollection<Omit<Employee, 'id'>>(firestore ? collection(firestore, 'empleados') : null);
+  const { data: employeesData = [], loading } = useCollection<DocumentData>(
+    firestore ? collection(firestore, 'empleados') : null
+  );
 
-  const employees: Employee[] = useMemo(() => {
+  /*const employees: Employee[] = useMemo(() => {
     return employeesData.map(emp => ({
       ...emp,
       id: emp.dni, 
     }));
+  }, [employeesData]);*/
+
+  const employees: Employee[] = useMemo(() => {
+    return employeesData.map(emp => ({
+      id: emp.dni || '', // Usar dni como ID
+      apellidosNombres: emp.apellidosNombres || '',
+      dni: emp.dni || '',
+      email: emp.email || '',
+      telefono: emp.telefono || null,
+      activo: emp.activo !== undefined ? emp.activo : true,
+      avatarUrl: emp.avatarUrl || `https://i.pravatar.cc/150?u=${emp.dni}`,
+
+      // Campos anidados - mapear exactamente como están en Firebase
+      proyecto: emp.proyecto || undefined,
+      dtt: emp.dtt || undefined,
+      modalidad: emp.modalidad || undefined,
+      sede: emp.sede || undefined,
+      tipoContrato: emp.tipoContrato || undefined,
+
+      // IDs
+      dttId: emp.dttId,
+      proyectoId: emp.proyectoId,
+      relacionDivisionId: emp.relacionDivisionId,
+      tipoContratoId: emp.tipoContratoId,
+      modalidadId: emp.modalidadId,
+      sedeId: emp.sedeId,
+      fechaInicio: emp.fechaInicio,
+      fechaFin: emp.fechaFin,
+      createdAt: emp.createdAt
+    }));
   }, [employeesData]);
-  
+
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
 
-  useEffect(() => {
+  /*useEffect(() => {
     if (employees.length > 0) {
       setAttendances(
         employees.map(emp => ({ employeeId: emp.id, status: 'No Registrado' }))
       );
     }
-  }, [employees]);
+  }, [employees]);*/
 
+  useEffect(() => {
+    // Crear attendances para cada empleado inmediatamente
+    const initialAttendances = employees.map(emp => ({
+      employeeId: emp.id,
+      status: 'No Registrado' as AttendanceStatus
+    }));
+    setAttendances(initialAttendances);
+  }, [employees]); // Dependencia de employees
 
+   
   useEffect(() => {
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -72,7 +113,7 @@ export default function Home() {
               return (
                 <EmployeeCard
                   key={employee.id}
-                  employee={{...employee, avatarUrl: `https://i.pravatar.cc/150?u=${employee.id}`}}
+                  employee={{ ...employee, avatarUrl: `https://i.pravatar.cc/150?u=${employee.id}` }}
                   currentStatus={attendance?.status || 'No Registrado'}
                   onStatusChange={handleStatusChange}
                 />
@@ -80,7 +121,7 @@ export default function Home() {
             })}
           </div>
         </section>
-        
+
         <Separator className="my-8 bg-border/50" />
 
         <section>

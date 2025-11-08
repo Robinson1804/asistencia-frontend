@@ -4,25 +4,46 @@ export interface Employee {
   id: string;
   apellidosNombres: string;
   dni: string;
-  email: string;
-  telefono: string;
+  email: string | null;
+  telefono: string | null;
   activo: boolean;
   avatarUrl?: string;
+  // Campos anidados que tienes en Firebase
   proyecto?: {
     nombre: string;
+    codigo?: string;
+    descripcion?: string;
   };
+  dtt?: {
+    nombre: string;
+    codigo?: string;
+    descripcion?: string;
+  };
+  modalidad?: {
+    nombre: string;
+    descripcion?: string;
+  };
+  sede?: {
+    nombre: string;
+    direccion?: string;
+  };
+  tipoContrato?: {
+    tipo: string;
+    descripcion?: string;
+  };
+  // IDs
   dttId?: string;
   proyectoId?: string;
   relacionDivisionId?: string;
   tipoContratoId?: string;
   modalidadId?: string;
   sedeId?: string;
-  fechaInicio?: any; 
+  fechaInicio?: any;
   fechaFin?: any;
   createdAt?: any;
 }
 
-export type AttendanceRecord = {
+export interface AttendanceRecord  {
   employeeId: string;
   status: AttendanceStatus;
   timestamp?: Date;
