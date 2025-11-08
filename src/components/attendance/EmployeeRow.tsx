@@ -2,7 +2,6 @@
 
 import type { Employee, AttendanceStatus } from "@/types";
 import { TableRow, TableCell } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
@@ -10,11 +9,12 @@ import { cn } from "@/lib/utils";
 
 interface EmployeeRowProps {
   employee: Employee;
+  index: number;
   currentStatus: AttendanceStatus;
   onStatusChange: (employeeId: string, status: AttendanceStatus) => void;
 }
 
-export function EmployeeRow({ employee, currentStatus, onStatusChange }: EmployeeRowProps) {
+export function EmployeeRow({ employee, index, currentStatus, onStatusChange }: EmployeeRowProps) {
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
     { value: 'Presente', label: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
     { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
@@ -25,12 +25,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange }: Employe
 
   return (
     <TableRow>
-      <TableCell>
-        <Avatar className="h-12 w-12 border-2 border-primary/20">
-          <AvatarImage src={employee.avatarUrl} alt={employeeName} data-ai-hint="person portrait" />
-          <AvatarFallback className="bg-primary/10 text-primary font-bold">{employeeName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-        </Avatar>
-      </TableCell>
+      <TableCell className="font-medium text-center">{index}</TableCell>
       <TableCell className="font-medium">{employeeName}</TableCell>
       <TableCell className="text-muted-foreground">{employee.proyecto?.nombre || 'N/A'}</TableCell>
       <TableCell>

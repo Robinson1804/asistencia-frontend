@@ -6,18 +6,20 @@ import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, addDoc, serverTimestamp, query, where, getDocs, Timestamp } from "firebase/firestore";
-import { CoordinatorsList } from "@/components/coordinators/CoordinatorsList";
+import { collection, writeBatch, serverTimestamp, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Save } from "lucide-react";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const firestore = useFirestore();
   const [selectedSede, setSelectedSede] = useState<string>("todos");
   const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
 
   const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(
     firestore ? collection(firestore, 'empleados') : null
@@ -39,6 +41,7 @@ export default function Home() {
   }, [employees, selectedSede]);
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
+  const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
 
   // Fetch today's attendances when component mounts or firestore instance changes
   useEffect(() => {
@@ -64,7 +67,8 @@ export default function Home() {
         const data = doc.data() as AttendanceRecord;
         todaysAttendances.set(data.employeeId, data.status);
       });
-      setAttendances(todaysAttendances);
+      setAttendances(new Map(todaysAttendances));
+      setInitialAttendances(new Map(todaysAttendances));
     };
 
     fetchTodaysAttendances();
@@ -78,44 +82,57 @@ export default function Home() {
     setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
   }, []);
 
-  const handleStatusChange = async (employeeId: string, status: AttendanceStatus) => {
+  const handleStatusChange = (employeeId: string, status: AttendanceStatus) => {
+    setAttendances(prevAttendances => new Map(prevAttendances).set(employeeId, status));
+  };
+  
+  const handleSaveAttendances = async () => {
     if (!firestore) {
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudo conectar a la base de datos.",
-        });
-        return;
+      toast({ variant: "destructive", title: "Error", description: "No se pudo conectar a la base de datos." });
+      return;
     }
 
-    // Optimistically update UI
-    setAttendances(prevAttendances => new Map(prevAttendances).set(employeeId, status));
+    const changes = new Map<string, AttendanceStatus>();
+    attendances.forEach((status, employeeId) => {
+      if (initialAttendances.get(employeeId) !== status) {
+        changes.set(employeeId, status);
+      }
+    });
+
+    if (changes.size === 0) {
+      toast({ title: "Sin cambios", description: "No hay nuevas asistencias para guardar." });
+      return;
+    }
+
+    setIsSaving(true);
+    const batch = writeBatch(firestore);
+    const asistenciasRef = collection(firestore, 'asistencias');
+
+    changes.forEach((status, employeeId) => {
+      const newAttendanceRef = collection(firestore, 'asistencias').doc();
+      batch.set(newAttendanceRef, {
+        employeeId,
+        status,
+        timestamp: serverTimestamp()
+      });
+    });
 
     try {
-        await addDoc(collection(firestore, 'asistencias'), {
-            employeeId,
-            status,
-            timestamp: serverTimestamp()
-        });
-        toast({
-            title: "Asistencia registrada",
-            description: `Se guardó el estado de ${status} para el empleado.`,
-        });
+      await batch.commit();
+      setInitialAttendances(new Map(attendances)); // Update initial state after successful save
+      toast({
+        title: "Asistencia guardada",
+        description: `Se guardaron ${changes.size} registros de asistencia.`,
+      });
     } catch (error) {
-        console.error("Error writing document: ", error);
-        // Revert UI change on error
-        setAttendances(prevAttendances => {
-            const newAttendances = new Map(prevAttendances);
-            // This is a simplified rollback, you might need a more robust solution
-            // depending on whether you want to revert to a 'No Registrado' state or previous state
-            newAttendances.delete(employeeId); 
-            return newAttendances;
-        });
-        toast({
-            variant: "destructive",
-            title: "Error al registrar",
-            description: "No se pudo guardar la asistencia. Inténtalo de nuevo.",
-        });
+      console.error("Error writing batch: ", error);
+      toast({
+        variant: "destructive",
+        title: "Error al guardar",
+        description: "No se pudieron guardar los cambios. Inténtalo de nuevo.",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -136,25 +153,31 @@ export default function Home() {
         <Separator className="my-8 bg-border/50" />
 
         <section>
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold font-headline text-center md:text-left mb-4 md:mb-0">Lista de Personal</h2>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="sede-filter">Filtrar por Sede:</Label>
-              <Select value={selectedSede} onValueChange={setSelectedSede}>
-                <SelectTrigger className="w-[180px]" id="sede-filter">
-                  <SelectValue placeholder="Todas las sedes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas las sedes</SelectItem>
-                  {loadingSedes ? (
-                    <SelectItem value="loading" disabled>Cargando...</SelectItem>
-                  ) : (
-                    sedesData.map((sede) => (
-                      <SelectItem key={sede.id} value={sede.nombreSede}>{sede.nombreSede}</SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <h2 className="text-3xl font-bold font-headline text-center md:text-left">Lista de Personal</h2>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="sede-filter">Filtrar por Sede:</Label>
+                <Select value={selectedSede} onValueChange={setSelectedSede}>
+                  <SelectTrigger className="w-[180px]" id="sede-filter">
+                    <SelectValue placeholder="Todas las sedes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas las sedes</SelectItem>
+                    {loadingSedes ? (
+                      <SelectItem value="loading" disabled>Cargando...</SelectItem>
+                    ) : (
+                      sedesData.map((sede) => (
+                        <SelectItem key={sede.id} value={sede.nombreSede}>{sede.nombreSede}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleSaveAttendances} disabled={isSaving}>
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? "Guardando..." : "Guardar Asistencias"}
+              </Button>
             </div>
           </div>
           
@@ -165,7 +188,7 @@ export default function Home() {
             <Table>
               <TableHeader>
                 <UiTableRow>
-                  <TableHead className="w-[120px]">Avatar</TableHead>
+                  <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
                   <TableHead>Proyecto</TableHead>
                   <TableHead className="text-center w-[320px]">Estado de Asistencia</TableHead>
@@ -175,7 +198,8 @@ export default function Home() {
                 {filteredEmployees.map((employee, index) => (
                   <EmployeeRow
                     key={employee.id}
-                    employee={{ ...employee, avatarUrl: `https://picsum.photos/seed/${index + 1}/150/150` }}
+                    employee={employee}
+                    index={index + 1}
                     currentStatus={attendances.get(employee.id) || 'No Registrado'}
                     onStatusChange={handleStatusChange}
                   />
@@ -185,11 +209,6 @@ export default function Home() {
           </div>
         </section>
 
-        <Separator className="my-8 bg-border/50" />
-
-        <section>
-          <CoordinatorsList />
-        </section>
       </main>
     </div>
   );
