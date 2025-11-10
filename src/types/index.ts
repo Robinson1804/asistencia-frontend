@@ -1,4 +1,5 @@
 
+
 export type AttendanceStatus = 'Presente' | 'Tardanza' | 'Falta' | 'No Registrado';
 
 export interface Employee {
@@ -55,6 +56,7 @@ export interface Employee {
   fechaInicio?: any;
   fechaFin?: any;
   createdAt?: any;
+  status?: AttendanceStatus;
 }
 
 export interface AttendanceRecord  {

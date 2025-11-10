@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
@@ -16,7 +17,7 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, Users, Briefcase, Building, LogOut } from 'lucide-react';
+import { Home, Users, Briefcase, Building, LogOut, BarChart } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
@@ -93,6 +94,7 @@ export default function AdminLayout({
   }
 
   const menuItems = [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: BarChart },
     { href: '/', label: 'Asistencia', icon: Home },
     { href: '/admin/employees', label: 'Empleados', icon: Users },
     { href: '/admin/projects', label: 'Proyectos', icon: Briefcase },

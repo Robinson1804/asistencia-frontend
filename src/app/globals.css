@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,6 +42,10 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    --color-presente: 142 76% 36%;
+    --color-tardanza: 35 92% 55%;
+    --color-falta: 0 84% 60%;
   }
   .dark {
     --background: 220 20% 12%;
@@ -75,6 +80,10 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    --color-presente: 142 71% 45%;
+    --color-tardanza: 40 96% 60%;
+    --color-falta: 0 72% 51%;
   }
 }
 
