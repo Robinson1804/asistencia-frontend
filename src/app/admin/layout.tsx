@@ -42,15 +42,16 @@ export default function AdminLayout({
   const { data: userData, isLoading: isUserDataLoading } = useDoc(userDocRef);
 
   useEffect(() => {
-    // Redirect to login if user is not logged in
+    // Si la carga del usuario ha terminado y no hay usuario, redirige al login.
     if (!userLoading && !user) {
       router.push('/login');
       return;
     }
-    // Once user is loaded, check their role
+
+    // Una vez que la carga de datos del usuario ha terminado y tenemos los datos...
     if (!isUserDataLoading && userData) {
+      // Si el rol no es 'admin', redirige a la página principal.
       if (userData.role !== 'admin') {
-        // If not an admin, redirect to home page
         router.push('/');
       }
     }
@@ -63,8 +64,8 @@ export default function AdminLayout({
     }
   };
 
-  // Show loading state while user or user data is being fetched
-  if (userLoading || isUserDataLoading || !userData) {
+  // Muestra el estado de carga mientras se obtiene la información de autenticación o los datos del perfil.
+  if (userLoading || isUserDataLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Verificando acceso...</p>
@@ -72,13 +73,23 @@ export default function AdminLayout({
     );
   }
 
-  // If user is not an admin, show a message while redirecting
+  // Si después de cargar, no hay usuario o no tiene datos (no existe en la colección 'users'),
+  // muestra un mensaje de error mientras ocurre la redirección del useEffect.
+  if (!user || !userData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>No se pudo verificar el usuario. Redirigiendo...</p>
+      </div>
+    )
+  }
+
+  // Si después de cargar, el rol no es admin, muestra un mensaje mientras se redirige.
   if (userData.role !== 'admin') {
-      return (
-          <div className="flex min-h-screen items-center justify-center">
-              <p>No tienes permiso para acceder a esta página. Redirigiendo...</p>
-          </div>
-      );
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>No tienes permiso para acceder a esta página. Redirigiendo...</p>
+      </div>
+    );
   }
 
   const menuItems = [
