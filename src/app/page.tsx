@@ -7,7 +7,7 @@ import { AttendanceSummary } from '@/components/attendance/AttendanceSummary';
 import { EmployeeRow } from '@/components/attendance/EmployeeRow';
 import { DatePicker } from '@/components/attendance/DatePicker';
 import { Separator } from '@/components/ui/separator';
-import { useAuth, useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useAuth, useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -30,13 +30,20 @@ export default function Home() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
   const auth = useAuth();
+  
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc(userDocRef);
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'empleados'), orderBy('orden'));
   }, [firestore]);
 
-  const { data: employeesData, loading: loadingEmployees } = useCollection<Employee>(employeesQuery);
+  const { data: employeesData, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
 
   const sedesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -64,7 +71,13 @@ export default function Home() {
     if (!userLoading && !user) {
       router.push('/login');
     }
-  }, [user, userLoading, router]);
+    if (!isUserDataLoading && userData) {
+      if (userData.role === 'admin') {
+        router.push('/admin');
+      }
+    }
+  }, [user, userLoading, router, userData, isUserDataLoading]);
+
 
   useEffect(() => {
     const fetchAttendancesForDate = async () => {
@@ -171,12 +184,17 @@ export default function Home() {
 
   const attendanceArray = Array.from(attendances.values());
 
-  if (userLoading || !user) {
+  if (userLoading || isUserDataLoading || !user || !userData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background/80">
         <p>Cargando...</p>
       </div>
     );
+  }
+
+  // Prevent rendering if user is an admin (redirect will handle it)
+  if (userData.role === 'admin') {
+    return <div className="flex items-center justify-center min-h-screen"><p>Redirigiendo al panel de administrador...</p></div>;
   }
 
   return (
@@ -185,11 +203,13 @@ export default function Home() {
         <div className="container mx-auto p-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary font-headline tracking-tight">AsistenciaYA</h1>
           <div className="flex items-center gap-4">
-            <Link href="/admin">
-              <Button variant="outline" size="icon" aria-label="Panel de Administrador">
-                <UserCog className="h-5 w-5" />
-              </Button>
-            </Link>
+            {userData?.role === 'admin' && (
+              <Link href="/admin">
+                <Button variant="outline" size="icon" aria-label="Panel de Administrador">
+                  <UserCog className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
             <span className="text-sm text-muted-foreground">{user.email}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Cerrar sesión">
               <LogOut className="h-5 w-5" />

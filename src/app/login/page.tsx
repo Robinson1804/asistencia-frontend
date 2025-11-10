@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,36 +18,61 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!auth) {
+    if (!auth || !firestore) {
         toast({
             variant: "destructive",
-            title: "Error de autenticación",
-            description: "Los servicios de autenticación no están disponibles.",
+            title: "Error de inicialización",
+            description: "Los servicios de autenticación o base de datos no están disponibles.",
         });
         return;
     }
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: "Bienvenido de nuevo.",
-      });
-      router.push('/');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Fetch user role from Firestore
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const role = userData.role;
+
+        toast({
+          title: "Inicio de sesión exitoso",
+          description: `Bienvenido, ${userData.email}. Redirigiendo...`,
+        });
+
+        if (role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/');
+        }
+      } else {
+         throw new Error("No se encontró el perfil de usuario.");
+      }
+
     } catch (error: any) {
       console.error("Failed to sign in", error);
+      let description = "Las credenciales son incorrectas o el usuario no tiene un perfil asignado.";
+      if (error.message.includes("not-found")) {
+        description = "No se encontró un perfil para este usuario en la base de datos."
+      }
+
       toast({
         variant: "destructive",
         title: "Error al iniciar sesión",
-        description: "Las credenciales son incorrectas. Por favor, inténtalo de nuevo.",
+        description: description,
       });
-    } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
+    // No establecer isLoading a false aquí para dar tiempo a la redirección
   };
 
   return (

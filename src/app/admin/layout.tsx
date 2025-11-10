@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@/firebase';
+import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
@@ -21,23 +21,40 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useUser();
+  const { user, loading: userLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuth();
+  const firestore = useFirestore();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc(userDocRef);
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Redirect to login if user is not logged in
+    if (!userLoading && !user) {
       router.push('/login');
+      return;
     }
-    // Add role-based access control here in the future
-  }, [user, loading, router]);
+    // Once user is loaded, check their role
+    if (!isUserDataLoading && userData) {
+      if (userData.role !== 'admin') {
+        // If not an admin, redirect to home page
+        router.push('/');
+      }
+    }
+  }, [user, userLoading, router, userData, isUserDataLoading]);
 
   const handleLogout = async () => {
     if (auth) {
@@ -46,12 +63,22 @@ export default function AdminLayout({
     }
   };
 
-  if (loading || !user) {
+  // Show loading state while user or user data is being fetched
+  if (userLoading || isUserDataLoading || !userData) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Cargando...</p>
+        <p>Verificando acceso...</p>
       </div>
     );
+  }
+
+  // If user is not an admin, show a message while redirecting
+  if (userData.role !== 'admin') {
+      return (
+          <div className="flex min-h-screen items-center justify-center">
+              <p>No tienes permiso para acceder a esta página. Redirigiendo...</p>
+          </div>
+      );
   }
 
   const menuItems = [
