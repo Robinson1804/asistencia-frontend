@@ -50,7 +50,7 @@ export default function Home() {
     return collection(firestore, 'sedes');
   }, [firestore]);
 
-  const { data: sedesData = [], loading: loadingSedes } = useCollection<Sede>(sedesQuery);
+  const { data: sedesData, loading: loadingSedes } = useCollection<Sede>(sedesQuery);
 
   const employees: Employee[] = useMemo(() => {
     if (!employeesData) return [];
@@ -248,7 +248,7 @@ export default function Home() {
                     {loadingSedes ? (
                       <SelectItem value="loading" disabled>Cargando...</SelectItem>
                     ) : (
-                      sedesData.map((sede) => (
+                      (sedesData || []).map((sede) => (
                         <SelectItem key={sede.id} value={sede.nombreSede}>
                           {sede.nombreSede}
                         </SelectItem>
