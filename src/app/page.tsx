@@ -1,20 +1,22 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from 'next/navigation';
 import type { AttendanceRecord, AttendanceStatus, Employee, Sede } from "@/types";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { DatePicker } from "@/components/attendance/DatePicker";
 import { Separator } from "@/components/ui/separator";
-import { useCollection, useFirestore } from "@/firebase";
+import { useAuth, useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import { LogOut, Save } from "lucide-react";
 import { startOfDay, endOfDay } from 'date-fns';
+import { signOut } from "firebase/auth";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
@@ -23,6 +25,10 @@ export default function Home() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  const { user, loading: userLoading } = useUser();
+  const router = useRouter();
+  const auth = useAuth();
 
   const employeesQuery = useMemo(() => {
     if (!firestore) return null;
@@ -43,12 +49,19 @@ export default function Home() {
     if (selectedSede === "todos") {
       return employees;
     }
+    // Updated filtering logic based on the correct field name from the user's DB structure
     return employees.filter(employee => employee.sede?.nombre === selectedSede);
   }, [employees, selectedSede]);
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
 
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, userLoading, router]);
+  
   useEffect(() => {
     const fetchAttendancesForDate = async () => {
       if (!firestore) return;
@@ -119,8 +132,8 @@ export default function Home() {
     const attendanceTimestamp = Timestamp.fromDate(selectedDate);
 
     changes.forEach((status, employeeId) => {
-      const newAttendanceRef = doc(collection(firestore, 'asistencias'));
-      batch.set(newAttendanceRef, {
+      const docRef = doc(collection(firestore, "asistencias"));
+      batch.set(docRef, {
         employeeId,
         status,
         timestamp: attendanceTimestamp
@@ -146,15 +159,41 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+      router.push('/login');
+    }
+  };
+
   const attendanceArray = Array.from(attendances.values());
+
+  if (userLoading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background/80">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background/80 backdrop-blur-sm">
+      <header className="bg-card shadow-sm">
+        <div className="container mx-auto p-4 flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-primary font-headline tracking-tight">AsistenciaYA</h1>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">{user.email}</span>
+              <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Cerrar sesión">
+                <LogOut className="h-5 w-5"/>
+              </Button>
+            </div>
+        </div>
+      </header>
+
       <main className="container mx-auto p-4 md:p-8">
-        <header className="mb-8 text-center md:text-left">
-          <h1 className="text-4xl font-bold text-primary mb-1 font-headline tracking-tight">AsistenciaYA</h1>
+        <div className="mb-8 text-center md:text-left">
           {currentDate && <p className="text-lg text-muted-foreground">Registrando para el {currentDate}</p>}
-        </header>
+        </div>
 
         <section className="mb-8">
           <AttendanceSummary attendances={attendanceArray} totalEmployees={filteredEmployees.length} />
@@ -172,7 +211,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <Label htmlFor="sede-filter">Sede:</Label>
-                <Select value={selectedSede} onValueChange={setSelectedSede}>
+                 <Select value={selectedSede} onValueChange={setSelectedSede}>
                   <SelectTrigger className="w-[180px]" id="sede-filter">
                     <SelectValue placeholder="Todas las sedes" />
                   </SelectTrigger>
