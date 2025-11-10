@@ -147,6 +147,51 @@
         }
       },
       "required": ["id", "nombreScrumMaster", "activo"]
+    },
+    "Proyecto": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Proyecto",
+      "type": "object",
+      "description": "Represents a project.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "codigoProyecto": {
+          "type": "string"
+        },
+        "nombreProyecto": {
+          "type": "string"
+        },
+        "descripcion": {
+          "type": "string"
+        },
+        "activo": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "codigoProyecto", "nombreProyecto", "activo"]
+    },
+    "Sede": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sede",
+      "type": "object",
+      "description": "Represents an office location.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "nombreSede": {
+          "type": "string"
+        },
+        "direccion": {
+          "type": "string"
+        },
+        "activo": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "nombreSede", "activo"]
     }
   },
   "auth": {
@@ -210,7 +255,7 @@
         }
       },
       {
-        "path": "/coordinadores/{coordinadorId}",
+        "path": "/coordinadoresDivision/{coordinadorId}",
         "definition": {
           "entityName": "Coordinador",
           "schema": {
@@ -253,6 +298,38 @@
             {
               "name": "scrumMasterId",
               "description": "Unique identifier for the Scrum Master."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/proyectos/{proyectoId}",
+        "definition": {
+          "entityName": "Proyecto",
+          "schema": {
+            "$ref": "#/entities/Proyecto"
+          },
+          "description": "Stores project information.",
+          "params": [
+            {
+              "name": "proyectoId",
+              "description": "Unique identifier for the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sedes/{sedeId}",
+        "definition": {
+          "entityName": "Sede",
+          "schema": {
+            "$ref": "#/entities/Sede"
+          },
+          "description": "Stores office location information.",
+          "params": [
+            {
+              "name": "sedeId",
+              "description": "Unique identifier for the office location."
             }
           ]
         }

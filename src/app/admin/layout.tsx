@@ -114,7 +114,7 @@ export default function AdminLayout({
               <SidebarMenuItem key={item.label}>
                 <Link href={item.href}>
                   <SidebarMenuButton
-                    isActive={pathname === item.href}
+                    isActive={pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/')}
                     icon={<item.icon />}
                   >
                     {item.label}
