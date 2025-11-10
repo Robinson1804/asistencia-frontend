@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,33 +37,55 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Fetch user role from Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
+      let userData;
+      let role;
+
       if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        const role = userData.role;
+        userData = userDocSnap.data();
+        role = userData.role;
+      } else {
+        // El documento del usuario no existe, así que lo creamos.
+        console.warn(`User document for ${user.uid} not found. Creating it.`);
+        
+        // Asignamos rol 'admin' si el email es el de admin, si no, 'registrador'.
+        const newRole = email === 'admin@inei.gob.pe' ? 'admin' : 'registrador';
+        
+        const newUserPayload = {
+          email: user.email,
+          role: newRole,
+          createdAt: serverTimestamp(),
+        };
+        
+        await setDoc(userDocRef, newUserPayload);
+        
+        userData = newUserPayload;
+        role = newRole;
 
         toast({
-          title: "Inicio de sesión exitoso",
-          description: `Bienvenido, ${userData.email}. Redirigiendo...`,
+            title: "Perfil creado",
+            description: "Hemos creado tu perfil de usuario automáticamente."
         });
+      }
 
-        if (role === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push('/');
-        }
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: `Bienvenido, ${userData.email}. Redirigiendo...`,
+      });
+
+      if (role === 'admin') {
+        router.push('/admin');
       } else {
-         throw new Error("No se encontró el perfil de usuario.");
+        router.push('/');
       }
 
     } catch (error: any) {
       console.error("Failed to sign in", error);
       let description = "Las credenciales son incorrectas o el usuario no tiene un perfil asignado.";
-      if (error.message.includes("not-found")) {
-        description = "No se encontró un perfil para este usuario en la base de datos."
+      if (error.code === 'auth/invalid-credential') {
+        description = "Correo electrónico o contraseña incorrectos."
       }
 
       toast({
@@ -72,7 +95,6 @@ export default function LoginPage() {
       });
       setIsLoading(false);
     }
-    // No establecer isLoading a false aquí para dar tiempo a la redirección
   };
 
   return (
@@ -121,3 +143,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
