@@ -53,7 +53,6 @@ export default function Home() {
     if (selectedSede === "todos") {
       return employees;
     }
-    // Updated filtering logic based on the correct field name from the user's DB structure
     return employees.filter(employee => employee.sede?.nombre === selectedSede);
   }, [employees, selectedSede]);
 
@@ -270,5 +269,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
