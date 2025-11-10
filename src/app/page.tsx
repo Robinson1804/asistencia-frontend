@@ -201,8 +201,9 @@ export default function Home() {
     <div className="min-h-screen bg-background/80 backdrop-blur-sm">
       <header className="bg-card shadow-sm">
         <div className="container mx-auto p-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary font-headline tracking-tight">AsistenciaYA</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex-1"></div>
+          <h1 className="text-2xl font-bold text-primary font-headline tracking-tight text-center">Permanencia OTIN</h1>
+          <div className="flex-1 flex items-center justify-end gap-4">
             {userData?.role === 'admin' && (
               <Link href="/admin">
                 <Button variant="outline" size="icon" aria-label="Panel de Administrador">
