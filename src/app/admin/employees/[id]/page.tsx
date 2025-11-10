@@ -87,6 +87,14 @@ export default function EmployeeFormPage() {
       email: '',
       telefono: '',
       activo: true,
+      proyectoId: undefined,
+      sedeId: undefined,
+      modalidadId: undefined,
+      tipoContratoId: undefined,
+      dttId: undefined,
+      coordinadorId: undefined,
+      divisionId: undefined,
+      scrumMasterId: undefined,
     }
   });
 
@@ -99,14 +107,14 @@ export default function EmployeeFormPage() {
         email: employeeData.email || '',
         telefono: employeeData.telefono || '',
         activo: employeeData.activo,
-        proyectoId: employeeData.proyecto?.codigo,
-        sedeId: employeeData.sede?.nombre,
-        modalidadId: employeeData.modalidad?.nombre,
-        tipoContratoId: employeeData.tipoContrato?.tipo,
-        dttId: employeeData.dtt?.codigo,
-        coordinadorId: employeeData.coordinador?.nombre,
-        divisionId: employeeData.division?.nombre,
-        scrumMasterId: employeeData.scrumMaster?.nombre,
+        proyectoId: employeeData.proyectoId,
+        sedeId: employeeData.sedeId,
+        modalidadId: employeeData.modalidadId,
+        tipoContratoId: employeeData.tipoContratoId,
+        dttId: employeeData.dttId,
+        coordinadorId: employeeData.coordinadorId,
+        divisionId: employeeData.divisionId,
+        scrumMasterId: employeeData.scrumMasterId,
       });
     }
   }, [employeeData, reset]);
@@ -114,14 +122,14 @@ export default function EmployeeFormPage() {
   const onSubmit = async (data: EmployeeFormData) => {
     if (!firestore) return;
     
-    const project = projectsData?.find(p => p.CodigoProyecto === data.proyectoId);
-    const sede = sedesData?.find(s => s.nombreSede === data.sedeId);
-    const modalidad = modalidadesData?.find(m => m.nombreModalidad === data.modalidadId);
-    const tipoContrato = tiposContratoData?.find(t => t.tipoContrato === data.tipoContratoId);
-    const dtt = dttsData?.find(d => d.codigoDTT === data.dttId);
-    const coordinador = coordinadoresData?.find(c => c.nombreCoordinador === data.coordinadorId);
-    const division = divisionesData?.find(d => d.nombreDivision === data.divisionId);
-    const scrumMaster = scrumMastersData?.find(s => s.nombreScrumMaster === data.scrumMasterId);
+    const project = projectsData?.find(p => p.id === data.proyectoId);
+    const sede = sedesData?.find(s => s.id === data.sedeId);
+    const modalidad = modalidadesData?.find(m => m.id === data.modalidadId);
+    const tipoContrato = tiposContratoData?.find(t => t.id === data.tipoContratoId);
+    const dtt = dttsData?.find(d => d.id === data.dttId);
+    const coordinador = coordinadoresData?.find(c => c.id === data.coordinadorId);
+    const division = divisionesData?.find(d => d.id === data.divisionId);
+    const scrumMaster = scrumMastersData?.find(s => s.id === data.scrumMasterId);
 
 
     const employeePayload = {
@@ -131,6 +139,7 @@ export default function EmployeeFormPage() {
       email: data.email,
       telefono: data.telefono,
       activo: data.activo,
+      // Nested objects
       proyecto: project ? { nombre: project.NombreProyecto, codigo: project.CodigoProyecto, descripcion: project.Descripcion } : null,
       sede: sede ? { nombre: sede.nombreSede, direccion: sede.direccion } : null,
       modalidad: modalidad ? { nombre: modalidad.nombreModalidad, descripcion: modalidad.descripcion } : null,
@@ -139,6 +148,15 @@ export default function EmployeeFormPage() {
       coordinador: coordinador ? { nombre: coordinador.nombreCoordinador } : null,
       division: division ? { nombre: division.nombreDivision } : null,
       scrumMaster: scrumMaster ? { nombre: scrumMaster.nombreScrumMaster } : null,
+      // Foreign keys
+      proyectoId: data.proyectoId || null,
+      sedeId: data.sedeId || null,
+      modalidadId: data.modalidadId || null,
+      tipoContratoId: data.tipoContratoId || null,
+      dttId: data.dttId || null,
+      coordinadorId: data.coordinadorId || null,
+      divisionId: data.divisionId || null,
+      scrumMasterId: data.scrumMasterId || null,
       updatedAt: new Date(),
       ...(isNew && { createdAt: new Date() })
     };
@@ -239,7 +257,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar DTT..." /></SelectTrigger>
                             <SelectContent>
-                                {dttsData?.map(d => <SelectItem key={d.id} value={d.codigoDTT}>{d.nombreDTT}</SelectItem>)}
+                                {dttsData?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDTT}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -255,7 +273,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
                             <SelectContent>
-                                {projectsData?.map(p => <SelectItem key={p.id} value={p.CodigoProyecto}>{p.NombreProyecto}</SelectItem>)}
+                                {projectsData?.map(p => <SelectItem key={p.id} value={p.id}>{p.NombreProyecto}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -271,7 +289,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
                             <SelectContent>
-                                {sedesData?.map(s => <SelectItem key={s.id} value={s.nombreSede}>{s.nombreSede}</SelectItem>)}
+                                {sedesData?.map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -287,7 +305,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar modalidad..." /></SelectTrigger>
                             <SelectContent>
-                                {modalidadesData?.map(m => <SelectItem key={m.id} value={m.nombreModalidad}>{m.nombreModalidad}</SelectItem>)}
+                                {modalidadesData?.map(m => <SelectItem key={m.id} value={m.id}>{m.nombreModalidad}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -303,7 +321,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
                             <SelectContent>
-                                {tiposContratoData?.map(t => <SelectItem key={t.id} value={t.tipoContrato}>{t.tipoContrato}</SelectItem>)}
+                                {tiposContratoData?.map(t => <SelectItem key={t.id} value={t.id}>{t.tipoContrato}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -319,7 +337,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar coordinador..." /></SelectTrigger>
                             <SelectContent>
-                                {coordinadoresData?.map(c => <SelectItem key={c.id} value={c.nombreCoordinador}>{c.nombreCoordinador}</SelectItem>)}
+                                {coordinadoresData?.map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -335,7 +353,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar división..." /></SelectTrigger>
                             <SelectContent>
-                                {divisionesData?.map(d => <SelectItem key={d.id} value={d.nombreDivision}>{d.nombreDivision}</SelectItem>)}
+                                {divisionesData?.map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -351,7 +369,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
                             <SelectContent>
-                                {scrumMastersData?.map(s => <SelectItem key={s.id} value={s.nombreScrumMaster}>{s.nombreScrumMaster}</SelectItem>)}
+                                {scrumMastersData?.map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
