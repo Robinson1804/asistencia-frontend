@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -6,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, collection } from 'firebase/firestore';
-import type { Employee, Proyecto, Sede, Modalidad, TipoContrato, Dtt } from '@/types';
+import type { Employee, Proyecto, Sede, Modalidad, TipoContrato, Dtt, Coordinador, Division, ScrumMaster } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +29,9 @@ const employeeSchema = z.object({
   modalidadId: z.string().optional(),
   tipoContratoId: z.string().optional(),
   dttId: z.string().optional(),
+  coordinadorId: z.string().optional(),
+  divisionId: z.string().optional(),
+  scrumMasterId: z.string().optional(),
 });
 
 type EmployeeFormData = z.infer<typeof employeeSchema>;
@@ -60,8 +64,17 @@ export default function EmployeeFormPage() {
   const { data: tiposContratoData, isLoading: loadingTiposContrato } = useCollection<TipoContrato>(
      useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
   );
-    const { data: dttsData, isLoading: loadingDtts } = useCollection<Dtt>(
+  const { data: dttsData, isLoading: loadingDtts } = useCollection<Dtt>(
      useMemoFirebase(() => firestore ? collection(firestore, 'dtts') : null, [firestore])
+  );
+  const { data: coordinadoresData, isLoading: loadingCoordinadores } = useCollection<Coordinador>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'coordinadores') : null, [firestore])
+  );
+  const { data: divisionesData, isLoading: loadingDivisiones } = useCollection<Division>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'divisiones') : null, [firestore])
+  );
+  const { data: scrumMastersData, isLoading: loadingScrumMasters } = useCollection<ScrumMaster>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'scrumMasters') : null, [firestore])
   );
 
 
@@ -91,6 +104,9 @@ export default function EmployeeFormPage() {
         modalidadId: employeeData.modalidad?.nombre,
         tipoContratoId: employeeData.tipoContrato?.tipo,
         dttId: employeeData.dtt?.codigo,
+        coordinadorId: employeeData.coordinador?.nombre,
+        divisionId: employeeData.division?.nombre,
+        scrumMasterId: employeeData.scrumMaster?.nombre,
       });
     }
   }, [employeeData, reset]);
@@ -103,6 +119,10 @@ export default function EmployeeFormPage() {
     const modalidad = modalidadesData?.find(m => m.nombreModalidad === data.modalidadId);
     const tipoContrato = tiposContratoData?.find(t => t.tipoContrato === data.tipoContratoId);
     const dtt = dttsData?.find(d => d.codigoDTT === data.dttId);
+    const coordinador = coordinadoresData?.find(c => c.nombreCoordinador === data.coordinadorId);
+    const division = divisionesData?.find(d => d.nombreDivision === data.divisionId);
+    const scrumMaster = scrumMastersData?.find(s => s.nombreScrumMaster === data.scrumMasterId);
+
 
     const employeePayload = {
       apellidosNombres: data.apellidosNombres,
@@ -116,6 +136,9 @@ export default function EmployeeFormPage() {
       modalidad: modalidad ? { nombre: modalidad.nombreModalidad, descripcion: modalidad.descripcion } : null,
       tipoContrato: tipoContrato ? { tipo: tipoContrato.tipoContrato, descripcion: tipoContrato.descripcion } : null,
       dtt: dtt ? { nombre: dtt.nombreDTT, codigo: dtt.codigoDTT, descripcion: dtt.descripcion } : null,
+      coordinador: coordinador ? { nombre: coordinador.nombreCoordinador } : null,
+      division: division ? { nombre: division.nombreDivision } : null,
+      scrumMaster: scrumMaster ? { nombre: scrumMaster.nombreScrumMaster } : null,
       updatedAt: new Date(),
       ...(isNew && { createdAt: new Date() })
     };
@@ -138,7 +161,7 @@ export default function EmployeeFormPage() {
     }
   };
 
-  if (loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts) {
+  if (loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts || loadingCoordinadores || loadingDivisiones || loadingScrumMasters) {
     return <div className="flex min-h-screen items-center justify-center"><p>Cargando datos...</p></div>;
   }
   
@@ -281,6 +304,54 @@ export default function EmployeeFormPage() {
                             <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
                             <SelectContent>
                                 {tiposContratoData?.map(t => <SelectItem key={t.id} value={t.tipoContrato}>{t.tipoContrato}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="coordinadorId">Coordinador</Label>
+                 <Controller
+                    name="coordinadorId"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger><SelectValue placeholder="Seleccionar coordinador..." /></SelectTrigger>
+                            <SelectContent>
+                                {coordinadoresData?.map(c => <SelectItem key={c.id} value={c.nombreCoordinador}>{c.nombreCoordinador}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="divisionId">División</Label>
+                 <Controller
+                    name="divisionId"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger><SelectValue placeholder="Seleccionar división..." /></SelectTrigger>
+                            <SelectContent>
+                                {divisionesData?.map(d => <SelectItem key={d.id} value={d.nombreDivision}>{d.nombreDivision}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="scrumMasterId">Scrum Master</Label>
+                 <Controller
+                    name="scrumMasterId"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
+                            <SelectContent>
+                                {scrumMastersData?.map(s => <SelectItem key={s.id} value={s.nombreScrumMaster}>{s.nombreScrumMaster}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}

@@ -1,3 +1,4 @@
+
 export type AttendanceStatus = 'Presente' | 'Tardanza' | 'Falta' | 'No Registrado';
 
 export interface Employee {
@@ -32,6 +33,15 @@ export interface Employee {
     tipo: string;
     descripcion?: string;
   };
+  coordinador?: {
+    nombre: string;
+  };
+  division?: {
+    nombre: string;
+  };
+  scrumMaster?: {
+    nombre: string;
+  };
   // IDs
   dttId?: string;
   proyectoId?: string;
@@ -39,6 +49,9 @@ export interface Employee {
   tipoContratoId?: string;
   modalidadId?: string;
   sedeId?: string;
+  coordinadorId?: string;
+  divisionId?: string;
+  scrumMasterId?: string;
   fechaInicio?: any;
   fechaFin?: any;
   createdAt?: any;
@@ -88,4 +101,16 @@ export interface TipoContrato {
     id: string;
     tipoContrato: string;
     descripcion: string;
+}
+
+export interface Division {
+    id: string;
+    nombreDivision: string;
+    descripcion: string;
+}
+
+export interface ScrumMaster {
+    id: string;
+    nombreScrumMaster: string;
+    activo: boolean;
 }

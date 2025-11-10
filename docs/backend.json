@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -92,6 +93,60 @@
         "date",
         "status"
       ]
+    },
+    "Coordinador": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Coordinador",
+      "type": "object",
+      "description": "Represents a coordinator.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "nombreCoordinador": {
+          "type": "string"
+        },
+        "activo": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "nombreCoordinador", "activo"]
+    },
+    "Division": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Division",
+      "type": "object",
+      "description": "Represents a division or department.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "nombreDivision": {
+          "type": "string"
+        },
+        "descripcion": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "nombreDivision"]
+    },
+    "ScrumMaster": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ScrumMaster",
+      "type": "object",
+      "description": "Represents a Scrum Master.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "nombreScrumMaster": {
+          "type": "string"
+        },
+        "activo": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "nombreScrumMaster", "activo"]
     }
   },
   "auth": {
@@ -150,6 +205,54 @@
             {
               "name": "attendanceId",
               "description": "Unique identifier for the attendance record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/coordinadores/{coordinadorId}",
+        "definition": {
+          "entityName": "Coordinador",
+          "schema": {
+            "$ref": "#/entities/Coordinador"
+          },
+          "description": "Stores coordinator information.",
+          "params": [
+            {
+              "name": "coordinadorId",
+              "description": "Unique identifier for the coordinator."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/divisiones/{divisionId}",
+        "definition": {
+          "entityName": "Division",
+          "schema": {
+            "$ref": "#/entities/Division"
+          },
+          "description": "Stores division information.",
+          "params": [
+            {
+              "name": "divisionId",
+              "description": "Unique identifier for the division."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/scrumMasters/{scrumMasterId}",
+        "definition": {
+          "entityName": "ScrumMaster",
+          "schema": {
+            "$ref": "#/entities/ScrumMaster"
+          },
+          "description": "Stores Scrum Master information.",
+          "params": [
+            {
+              "name": "scrumMasterId",
+              "description": "Unique identifier for the Scrum Master."
             }
           ]
         }
