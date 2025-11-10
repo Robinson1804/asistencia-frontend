@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Employee, AttendanceStatus } from "@/types";
@@ -28,11 +29,12 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
 
 
   return (
-    <TableRow className={rowColorClass}>
-      <TableCell className="font-medium text-center">{employee.orden || 'N/A'}</TableCell>
-      <TableCell className="font-medium">{employeeName}</TableCell>
-      <TableCell className="text-muted-foreground">{employee.proyecto?.nombre || 'N/A'}</TableCell>
-      <TableCell>
+    <TableRow className={cn("flex flex-col sm:table-row", rowColorClass)}>
+      <TableCell className="font-medium sm:py-4 py-2 px-4 border-b sm:border-b-0">
+        {employeeName}
+        <div className="sm:hidden text-xs text-muted-foreground">{employee.proyecto?.nombre || 'Sin proyecto'}</div>
+      </TableCell>
+      <TableCell className="sm:py-4 py-3 px-4">
         <RadioGroup
           value={currentStatus}
           onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}

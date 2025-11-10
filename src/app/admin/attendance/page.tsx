@@ -217,10 +217,8 @@ export default function AttendancePage() {
             <Table>
               <TableHeader>
                 <UiTableRow>
-                  <TableHead className="w-[150px]">Orden</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead className="text-center w-[320px]">Estado de Asistencia</TableHead>
+                  <TableHead className="text-center w-[300px] sm:w-[320px]">Estado de Asistencia</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
