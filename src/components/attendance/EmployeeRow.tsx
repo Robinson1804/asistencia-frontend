@@ -9,12 +9,11 @@ import { cn } from "@/lib/utils";
 
 interface EmployeeRowProps {
   employee: Employee;
-  index: number;
   currentStatus: AttendanceStatus;
   onStatusChange: (employeeId: string, status: AttendanceStatus) => void;
 }
 
-export function EmployeeRow({ employee, index, currentStatus, onStatusChange }: EmployeeRowProps) {
+export function EmployeeRow({ employee, currentStatus, onStatusChange }: EmployeeRowProps) {
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
     { value: 'Presente', label: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
     { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
@@ -25,7 +24,7 @@ export function EmployeeRow({ employee, index, currentStatus, onStatusChange }: 
 
   return (
     <TableRow>
-      <TableCell className="font-medium text-center">{index}</TableCell>
+      <TableCell className="font-medium text-center">{employee.orden || 'N/A'}</TableCell>
       <TableCell className="font-medium">{employeeName}</TableCell>
       <TableCell className="text-muted-foreground">{employee.proyecto?.nombre || 'N/A'}</TableCell>
       <TableCell>

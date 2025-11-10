@@ -4,6 +4,7 @@ export interface Employee {
   id: string;
   apellidosNombres: string;
   dni: string;
+  orden?: string;
   email: string | null;
   telefono: string | null;
   activo: boolean;

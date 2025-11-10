@@ -7,7 +7,7 @@ import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { DatePicker } from "@/components/attendance/DatePicker";
 import { Separator } from "@/components/ui/separator";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, writeBatch, Timestamp, query, where, getDocs, doc } from "firebase/firestore";
+import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
@@ -24,9 +24,12 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(
-    firestore ? collection(firestore, 'empleados') : null
-  );
+  const employeesQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'empleados'), orderBy('orden'));
+  }, [firestore]);
+
+  const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(employeesQuery);
 
   const { data: sedesData = [], loading: loadingSedes } = useCollection<Sede>(
     firestore ? collection(firestore, 'sedes') : null
@@ -199,18 +202,17 @@ export default function Home() {
             <Table>
               <TableHeader>
                 <UiTableRow>
-                  <TableHead className="w-[50px]">#</TableHead>
+                  <TableHead className="w-[150px]">Orden</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
                   <TableHead>Proyecto</TableHead>
                   <TableHead className="text-center w-[320px]">Estado de Asistencia</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee, index) => (
+                {filteredEmployees.map((employee) => (
                   <EmployeeRow
                     key={employee.id}
                     employee={employee}
-                    index={index + 1}
                     currentStatus={attendances.get(employee.id) || 'No Registrado'}
                     onStatusChange={handleStatusChange}
                   />
