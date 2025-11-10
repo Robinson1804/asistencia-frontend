@@ -28,12 +28,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 export default function EmployeesPage() {
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+  const [nameFilter, setNameFilter] = useState('');
+  const [dniFilter, setDniFilter] = useState('');
+
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -42,10 +46,17 @@ export default function EmployeesPage() {
 
   const { data: employeesData, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
 
-  const employees: Employee[] = useMemo(() => {
+  const filteredEmployees = useMemo(() => {
     if (!employeesData) return [];
-    return employeesData.map(emp => ({...emp, id: emp.dni}));
-  }, [employeesData]);
+    return employeesData
+      .map(emp => ({...emp, id: emp.dni}))
+      .filter(employee => {
+        const nameMatch = employee.apellidosNombres.toLowerCase().includes(nameFilter.toLowerCase());
+        const dniMatch = employee.dni.includes(dniFilter);
+        return nameMatch && dniMatch;
+      });
+  }, [employeesData, nameFilter, dniFilter]);
+
 
   const handleDeleteEmployee = async () => {
     if (!firestore || !employeeToDelete) return;
@@ -79,6 +90,21 @@ export default function EmployeesPage() {
         </Button>
       </div>
 
+       <div className="mb-6 flex flex-col md:flex-row gap-4">
+        <Input
+          placeholder="Filtrar por apellidos y nombres..."
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          className="max-w-sm"
+        />
+        <Input
+          placeholder="Filtrar por DNI..."
+          value={dniFilter}
+          onChange={(e) => setDniFilter(e.target.value)}
+          className="max-w-sm"
+        />
+      </div>
+
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
           <TableHeader>
@@ -97,14 +123,14 @@ export default function EmployeesPage() {
                   Cargando empleados...
                 </TableCell>
               </TableRow>
-            ) : employees.length === 0 ? (
+            ) : filteredEmployees.length === 0 ? (
                  <TableRow>
                 <TableCell colSpan={5} className="text-center">
-                  No se encontraron empleados.
+                  No se encontraron empleados con los filtros actuales.
                 </TableCell>
               </TableRow>
             ) : (
-              employees.map((employee) => (
+              filteredEmployees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium">{employee.apellidosNombres}</TableCell>
                   <TableCell>{employee.dni}</TableCell>
@@ -152,5 +178,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-    
