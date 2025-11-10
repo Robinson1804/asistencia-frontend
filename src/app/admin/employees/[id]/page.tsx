@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useDocument, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, collection } from 'firebase/firestore';
 import type { Employee, Proyecto, Sede, Modalidad, TipoContrato, Dtt } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ export default function EmployeeFormPage() {
     return doc(firestore, 'empleados', id);
   }, [firestore, id, isNew]);
 
-  const { data: employeeData, isLoading: loadingEmployee } = useDocument<Employee>(employeeRef);
+  const { data: employeeData, isLoading: loadingEmployee } = useDoc<Employee>(employeeRef);
 
   const { data: projectsData, isLoading: loadingProjects } = useCollection<Proyecto>(
     useMemoFirebase(() => firestore ? collection(firestore, 'proyectos') : null, [firestore])
