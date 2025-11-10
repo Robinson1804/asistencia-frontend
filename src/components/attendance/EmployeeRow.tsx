@@ -30,11 +30,32 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
 
   return (
     <TableRow className={cn("flex flex-col sm:table-row", rowColorClass)}>
-      <TableCell className="font-medium sm:py-4 py-2 px-4 border-b sm:border-b-0">
-        {employeeName}
-        <div className="sm:hidden text-xs text-muted-foreground">{employee.proyecto?.nombre || 'Sin proyecto'}</div>
+       <TableCell className="font-medium sm:py-4 py-2 px-4 border-b sm:border-b-0 flex justify-between items-center">
+        <span>{employeeName}</span>
+        <div className="sm:hidden">
+            <RadioGroup
+              value={currentStatus}
+              onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
+              className="grid grid-cols-3 gap-2"
+            >
+              {statusOptions.map((option) => (
+                <div key={option.value}>
+                  <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}-mobile`} className="sr-only" />
+                  <Label
+                    htmlFor={`${employee.id}-${option.value}-mobile`}
+                    className={cn(
+                      "flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 h-10 w-10 text-xs font-medium hover:bg-accent/10 cursor-pointer transition-colors duration-200",
+                      currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-inner` : "text-muted-foreground"
+                    )}
+                  >
+                    <option.icon className={cn("h-5 w-5 transition-colors", currentStatus === option.value ? option.color : "")} />
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+        </div>
       </TableCell>
-      <TableCell className="sm:py-4 py-3 px-4">
+      <TableCell className="sm:py-4 py-3 px-4 hidden sm:table-cell">
         <RadioGroup
           value={currentStatus}
           onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
