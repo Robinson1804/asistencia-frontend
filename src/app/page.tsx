@@ -35,7 +35,7 @@ export default function Home() {
     return query(collection(firestore, 'empleados'), orderBy('orden'));
   }, [firestore]);
 
-  const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(employeesQuery);
+  const { data: employeesData, loading: loadingEmployees } = useCollection<Employee>(employeesQuery);
 
   const sedesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -223,7 +223,7 @@ export default function Home() {
                     {loadingSedes ? (
                       <SelectItem value="loading" disabled>Cargando...</SelectItem>
                     ) : (
-                      sedesData.map((sede) => (
+                      (sedesData || []).map((sede) => (
                         <SelectItem key={sede.id} value={sede.nombreSede}>{sede.nombreSede}</SelectItem>
                       ))
                     )}
