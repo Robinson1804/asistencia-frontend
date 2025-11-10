@@ -7,7 +7,7 @@ import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { DatePicker } from "@/components/attendance/DatePicker";
 import { Separator } from "@/components/ui/separator";
-import { useAuth, useCollection, useFirestore, useUser } from "@/firebase";
+import { useAuth, useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -30,18 +30,22 @@ export default function Home() {
   const router = useRouter();
   const auth = useAuth();
 
-  const employeesQuery = useMemo(() => {
+  const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'empleados'), orderBy('orden'));
   }, [firestore]);
 
   const { data: employeesData = [], loading: loadingEmployees } = useCollection<Employee>(employeesQuery);
 
-  const { data: sedesData = [], loading: loadingSedes } = useCollection<Sede>(
-    firestore ? collection(firestore, 'sedes') : null
-  );
+  const sedesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'sedes');
+  }, [firestore]);
+
+  const { data: sedesData = [], loading: loadingSedes } = useCollection<Sede>(sedesQuery);
 
   const employees: Employee[] = useMemo(() => {
+    if (!employeesData) return [];
     return employeesData.map(emp => ({...emp, id: emp.dni}));
   }, [employeesData]);
 
@@ -266,3 +270,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

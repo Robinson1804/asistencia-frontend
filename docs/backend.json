@@ -1,5 +1,28 @@
 {
   "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity, same as Firebase Auth UID."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user in the system.",
+          "enum": ["admin", "registrador"]
+        }
+      },
+      "required": ["id", "email", "role"]
+    },
     "Employee": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Employee",
@@ -80,11 +103,27 @@
   "firestore": {
     "structure": [
       {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/entities/User"
+          },
+          "description": "Stores user profile information, including their role.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user, same as Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
         "path": "/employees/{employeeId}",
         "definition": {
           "entityName": "Employee",
           "schema": {
-            "$ref": "#/backend/entities/Employee"
+            "$ref": "#/entities/Employee"
           },
           "description": "Stores employee information. The employeeId is the unique identifier for each employee.",
           "params": [
@@ -100,7 +139,7 @@
         "definition": {
           "entityName": "AttendanceRecord",
           "schema": {
-            "$ref": "#/backend/entities/AttendanceRecord"
+            "$ref": "#/entities/AttendanceRecord"
           },
           "description": "Stores attendance records for each employee. The attendanceId is the unique identifier for each attendance record. Includes denormalized employeeId for authorization independence.",
           "params": [
@@ -115,7 +154,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to manage employee data and attendance records in a secure and scalable manner. It prioritizes authorization independence by avoiding hierarchical dependencies and denormalizing data where necessary.  The design follows the principles of structural segregation and access modeling to ensure clarity and security. Specifically, employee data is stored under a dedicated `/employees` collection, while attendance records are stored in a subcollection under each employee's document (`/employees/{employeeId}/attendance`). This approach allows for easy retrieval of an employee's attendance history. Since all documents in each collection share the same security requirements, this structure simplifies rules.  This structure facilitates secure `list` operations, addressing the QAPs principle, since we can efficiently query attendance records by employee ID. Path-based ownership ensures that only authorized users (e.g., admins) can access and modify employee and attendance data.  The structure also supports invariants such as data integrity, ownership, and timestamps. The schema enforces the required fields for each entity (Employee and AttendanceRecord)."
+    ]
   }
 }
