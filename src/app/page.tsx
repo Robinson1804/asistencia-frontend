@@ -209,12 +209,13 @@ export default function Home() {
                 </UiTableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee) => (
+                {filteredEmployees.map((employee, index) => (
                   <EmployeeRow
                     key={employee.id}
                     employee={employee}
                     currentStatus={attendances.get(employee.id) || 'No Registrado'}
                     onStatusChange={handleStatusChange}
+                    index={index}
                   />
                 ))}
               </TableBody>

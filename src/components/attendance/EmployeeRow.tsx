@@ -11,9 +11,10 @@ interface EmployeeRowProps {
   employee: Employee;
   currentStatus: AttendanceStatus;
   onStatusChange: (employeeId: string, status: AttendanceStatus) => void;
+  index: number;
 }
 
-export function EmployeeRow({ employee, currentStatus, onStatusChange }: EmployeeRowProps) {
+export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: EmployeeRowProps) {
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
     { value: 'Presente', label: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
     { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
@@ -22,8 +23,12 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange }: Employe
   
   const employeeName = employee.apellidosNombres || "Empleado";
 
+  const groupIndex = Math.floor(index / 11);
+  const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
+
+
   return (
-    <TableRow>
+    <TableRow className={rowColorClass}>
       <TableCell className="font-medium text-center">{employee.orden || 'N/A'}</TableCell>
       <TableCell className="font-medium">{employeeName}</TableCell>
       <TableCell className="text-muted-foreground">{employee.proyecto?.nombre || 'N/A'}</TableCell>
