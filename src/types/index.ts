@@ -70,3 +70,22 @@ export interface Coordinador {
   nombreCoordinador: string;
   activo: boolean;
 }
+
+export interface Dtt {
+  id: string;
+  nombreDTT: string;
+  codigoDTT: string;
+  descripcion: string;
+}
+
+export interface Modalidad {
+    id: string;
+    nombreModalidad: string;
+    descripcion: string;
+}
+
+export interface TipoContrato {
+    id: string;
+    tipoContrato: string;
+    descripcion: string;
+}

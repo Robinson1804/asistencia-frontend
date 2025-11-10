@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from 'next/navigation';
-import type { AttendanceRecord, AttendanceStatus, Employee, Sede } from "@/types";
+import type { AttendanceStatus, Employee, Sede } from "@/types";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { EmployeeRow } from "@/components/attendance/EmployeeRow";
 import { DatePicker } from "@/components/attendance/DatePicker";
@@ -14,9 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { LogOut, Save } from "lucide-react";
+import { LogOut, Save, UserCog } from "lucide-react";
 import { startOfDay, endOfDay } from 'date-fns';
 import { signOut } from "firebase/auth";
+import Link from "next/link";
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
@@ -82,7 +83,7 @@ export default function Home() {
         const querySnapshot = await getDocs(q);
         const todaysAttendances = new Map<string, AttendanceStatus>();
         querySnapshot.forEach((doc) => {
-          const data = doc.data() as AttendanceRecord;
+          const data = doc.data() as { employeeId: string; status: AttendanceStatus };
           todaysAttendances.set(data.employeeId, data.status);
         });
         setAttendances(new Map(todaysAttendances));
@@ -185,6 +186,11 @@ export default function Home() {
         <div className="container mx-auto p-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold text-primary font-headline tracking-tight">AsistenciaYA</h1>
             <div className="flex items-center gap-4">
+              <Link href="/admin">
+                <Button variant="outline" size="icon" aria-label="Panel de Administrador">
+                  <UserCog className="h-5 w-5"/>
+                </Button>
+              </Link>
               <span className="text-sm text-muted-foreground">{user.email}</span>
               <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Cerrar sesión">
                 <LogOut className="h-5 w-5"/>
@@ -223,7 +229,7 @@ export default function Home() {
                     {loadingSedes ? (
                       <SelectItem value="loading" disabled>Cargando...</SelectItem>
                     ) : (
-                      (sedesData || []).map((sede) => (
+                      sedesData.map((sede) => (
                         <SelectItem key={sede.id} value={sede.nombreSede}>{sede.nombreSede}</SelectItem>
                       ))
                     )}
