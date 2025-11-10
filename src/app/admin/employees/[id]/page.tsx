@@ -68,7 +68,7 @@ export default function EmployeeFormPage() {
      useMemoFirebase(() => firestore ? collection(firestore, 'dtts') : null, [firestore])
   );
   const { data: coordinadoresData, isLoading: loadingCoordinadores } = useCollection<Coordinador>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'coordinadores') : null, [firestore])
+    useMemoFirebase(() => firestore ? collection(firestore, 'coordinadoresDivision') : null, [firestore])
   );
   const { data: divisionesData, isLoading: loadingDivisiones } = useCollection<Division>(
     useMemoFirebase(() => firestore ? collection(firestore, 'divisiones') : null, [firestore])
@@ -87,14 +87,14 @@ export default function EmployeeFormPage() {
       email: '',
       telefono: '',
       activo: true,
-      proyectoId: undefined,
-      sedeId: undefined,
-      modalidadId: undefined,
-      tipoContratoId: undefined,
-      dttId: undefined,
-      coordinadorId: undefined,
-      divisionId: undefined,
-      scrumMasterId: undefined,
+      proyectoId: '',
+      sedeId: '',
+      modalidadId: '',
+      tipoContratoId: '',
+      dttId: '',
+      coordinadorId: '',
+      divisionId: '',
+      scrumMasterId: '',
     }
   });
 
@@ -140,7 +140,7 @@ export default function EmployeeFormPage() {
       telefono: data.telefono,
       activo: data.activo,
       // Nested objects
-      proyecto: project ? { nombre: project.NombreProyecto, codigo: project.CodigoProyecto, descripcion: project.Descripcion } : null,
+      proyecto: project ? { nombre: project.nombreProyecto, codigo: project.codigoProyecto, descripcion: project.descripcion } : null,
       sede: sede ? { nombre: sede.nombreSede, direccion: sede.direccion } : null,
       modalidad: modalidad ? { nombre: modalidad.nombreModalidad, descripcion: modalidad.descripcion } : null,
       tipoContrato: tipoContrato ? { tipo: tipoContrato.tipoContrato, descripcion: tipoContrato.descripcion } : null,
@@ -273,7 +273,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
                             <SelectContent>
-                                {projectsData?.map(p => <SelectItem key={p.id} value={p.id}>{p.NombreProyecto}</SelectItem>)}
+                                {projectsData?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombreProyecto}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -396,3 +396,5 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
+
+    

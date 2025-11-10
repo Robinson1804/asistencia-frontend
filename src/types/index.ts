@@ -72,10 +72,10 @@ export interface Sede {
 
 export interface Proyecto {
   id:string;
-  CodigoProyecto: string;
-  NombreProyecto: string;
-  Descripcion: string;
-  Activo: boolean;
+  codigoProyecto: string;
+  nombreProyecto: string;
+  descripcion: string;
+  activo: boolean;
 }
 
 export interface Coordinador {
@@ -114,3 +114,5 @@ export interface ScrumMaster {
     nombreScrumMaster: string;
     activo: boolean;
 }
+
+    
