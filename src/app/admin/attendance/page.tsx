@@ -1,42 +1,29 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import type { AttendanceStatus, Employee, Sede } from '@/types';
 import { AttendanceSummary } from '@/components/attendance/AttendanceSummary';
 import { EmployeeRow } from '@/components/attendance/EmployeeRow';
 import { DatePicker } from '@/components/attendance/DatePicker';
 import { Separator } from '@/components/ui/separator';
-import { useAuth, useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { LogOut, Save, UserCog } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { startOfDay, endOfDay } from 'date-fns';
-import { signOut } from 'firebase/auth';
-import Link from 'next/link';
 
-export default function Home() {
+export default function AttendancePage() {
   const [currentDate, setCurrentDate] = useState('');
   const firestore = useFirestore();
   const [selectedSede, setSelectedSede] = useState<string>('todos');
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
-  const { user, loading: userLoading } = useUser();
-  const router = useRouter();
-  const auth = useAuth();
-  
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-
-  const { data: userData, isLoading: isUserDataLoading } = useDoc(userDocRef);
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -66,18 +53,6 @@ export default function Home() {
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
-
-  useEffect(() => {
-    if (!userLoading && !user) {
-      router.push('/login');
-    }
-    if (!isUserDataLoading && userData) {
-      if (userData.role === 'admin') {
-        router.push('/admin');
-      }
-    }
-  }, [user, userLoading, router, userData, isUserDataLoading]);
-
 
   useEffect(() => {
     const fetchAttendancesForDate = async () => {
@@ -175,16 +150,9 @@ export default function Home() {
     }
   };
 
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-      router.push('/login');
-    }
-  };
-
   const attendanceArray = Array.from(attendances.values());
 
-  if (userLoading || isUserDataLoading || !user || !userData) {
+  if (loadingEmployees) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background/80">
         <p>Cargando...</p>
@@ -192,34 +160,10 @@ export default function Home() {
     );
   }
 
-  // Prevent rendering if user is an admin (redirect will handle it)
-  if (userData.role === 'admin') {
-    return <div className="flex items-center justify-center min-h-screen"><p>Redirigiendo al panel de administrador...</p></div>;
-  }
-
   return (
-    <div className="min-h-screen bg-background/80 backdrop-blur-sm">
-      <header className="bg-card shadow-sm">
-        <div className="container mx-auto p-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary font-headline tracking-tight">AsistenciaYA</h1>
-          <div className="flex items-center gap-4">
-            {userData?.role === 'admin' && (
-              <Link href="/admin">
-                <Button variant="outline" size="icon" aria-label="Panel de Administrador">
-                  <UserCog className="h-5 w-5" />
-                </Button>
-              </Link>
-            )}
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Cerrar sesión">
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto p-4 md:p-8">
+    <div className="container mx-auto p-4 md:p-8">
         <div className="mb-8 text-center md:text-left">
+          <h1 className="text-3xl font-bold">Registro de Asistencia</h1>
           {currentDate && <p className="text-lg text-muted-foreground">Registrando para el {currentDate}</p>}
         </div>
 
@@ -293,7 +237,6 @@ export default function Home() {
             </Table>
           </div>
         </section>
-      </main>
     </div>
   );
 }

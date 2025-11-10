@@ -65,7 +65,7 @@ export default function EmployeeFormPage() {
      useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
   );
   const { data: dttsData, isLoading: loadingDtts } = useCollection<Dtt>(
-     useMemoFirebase(() => firestore ? collection(firestore, 'dtts') : null, [firestore])
+     useMemoFirebase(() => firestore ? collection(firestore, 'dtt') : null, [firestore])
   );
   const { data: coordinadoresData, isLoading: loadingCoordinadores } = useCollection<Coordinador>(
     useMemoFirebase(() => firestore ? collection(firestore, 'coordinadoresDivision') : null, [firestore])

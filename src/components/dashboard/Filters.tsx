@@ -48,7 +48,7 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
         <div className="space-y-2">
           <Label>Scrum Master</Label>
           <Select value={filters.scrumMaster} onValueChange={(value) => handleFilterChange('scrumMaster', value)}>
-            <SelectTrigger><SelectValue /></SelectValue>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               {scrumMasters.map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}

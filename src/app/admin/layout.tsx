@@ -95,7 +95,7 @@ export default function AdminLayout({
 
   const menuItems = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: BarChart },
-    { href: '/', label: 'Asistencia', icon: Home },
+    { href: '/admin/attendance', label: 'Asistencia', icon: Home },
     { href: '/admin/employees', label: 'Empleados', icon: Users },
     { href: '/admin/projects', label: 'Proyectos', icon: Briefcase },
     { href: '/admin/sedes', label: 'Sedes', icon: Building },
@@ -117,8 +117,8 @@ export default function AdminLayout({
                 <Link href={item.href}>
                   <SidebarMenuButton
                     isActive={pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/')}
-                    icon={<item.icon />}
                   >
+                    <item.icon className="mr-2 h-4 w-4" />
                     {item.label}
                   </SidebarMenuButton>
                 </Link>
