@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Employee entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the employee."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the employee."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the employee.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Phone number of the employee."
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email"
+      ]
+    },
+    "AttendanceRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AttendanceRecord",
+      "type": "object",
+      "description": "Represents an attendance record for an employee on a specific date.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AttendanceRecord entity."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "Reference to Employee. (Relationship: Employee 1:N AttendanceRecord)"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the attendance record.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Attendance status for the employee on the given date (e.g., Presente, Tardanza, Falta)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes regarding attendance (e.g., reason for tardiness)."
+        }
+      },
+      "required": [
+        "id",
+        "employeeId",
+        "date",
+        "status"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/employees/{employeeId}",
+        "definition": {
+          "entityName": "Employee",
+          "schema": {
+            "$ref": "#/backend/entities/Employee"
+          },
+          "description": "Stores employee information. The employeeId is the unique identifier for each employee.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Unique identifier for the employee."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}/attendance/{attendanceId}",
+        "definition": {
+          "entityName": "AttendanceRecord",
+          "schema": {
+            "$ref": "#/backend/entities/AttendanceRecord"
+          },
+          "description": "Stores attendance records for each employee. The attendanceId is the unique identifier for each attendance record. Includes denormalized employeeId for authorization independence.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Unique identifier for the employee."
+            },
+            {
+              "name": "attendanceId",
+              "description": "Unique identifier for the attendance record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage employee data and attendance records in a secure and scalable manner. It prioritizes authorization independence by avoiding hierarchical dependencies and denormalizing data where necessary.  The design follows the principles of structural segregation and access modeling to ensure clarity and security. Specifically, employee data is stored under a dedicated `/employees` collection, while attendance records are stored in a subcollection under each employee's document (`/employees/{employeeId}/attendance`). This approach allows for easy retrieval of an employee's attendance history. Since all documents in each collection share the same security requirements, this structure simplifies rules.  This structure facilitates secure `list` operations, addressing the QAPs principle, since we can efficiently query attendance records by employee ID. Path-based ownership ensures that only authorized users (e.g., admins) can access and modify employee and attendance data.  The structure also supports invariants such as data integrity, ownership, and timestamps. The schema enforces the required fields for each entity (Employee and AttendanceRecord)."
+  }
+}
