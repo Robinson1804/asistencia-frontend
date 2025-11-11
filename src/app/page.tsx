@@ -19,6 +19,7 @@ import { LogOut, Save, UserCog } from 'lucide-react';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState('');
@@ -27,6 +28,8 @@ export default function Home() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [nameFilter, setNameFilter] = useState('');
+  const [dniFilter, setDniFilter] = useState('');
 
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
@@ -59,11 +62,13 @@ export default function Home() {
   }, [employeesData]);
 
   const filteredEmployees = useMemo(() => {
-    if (selectedSede === 'todos') {
-      return employees;
-    }
-    return employees.filter((employee) => employee.sede?.nombre === selectedSede);
-  }, [employees, selectedSede]);
+    return employees.filter((employee) => {
+      const sedeMatch = selectedSede === 'todos' || employee.sede?.nombre === selectedSede;
+      const nameMatch = employee.apellidosNombres.toLowerCase().includes(nameFilter.toLowerCase());
+      const dniMatch = employee.dni.includes(dniFilter);
+      return sedeMatch && nameMatch && dniMatch;
+    });
+  }, [employees, selectedSede, nameFilter, dniFilter]);
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
@@ -385,6 +390,21 @@ export default function Home() {
             </div>
           </div>
 
+          <div className="mb-6 flex flex-col md:flex-row gap-4">
+            <Input
+              placeholder="Filtrar por apellidos y nombres..."
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.target.value)}
+              className="max-w-sm"
+            />
+            <Input
+              placeholder="Filtrar por DNI..."
+              value={dniFilter}
+              onChange={(e) => setDniFilter(e.target.value)}
+              className="max-w-xs"
+            />
+          </div>
+
           {loadingEmployees && (
             <div className="flex justify-center items-center py-12">
               <p className="text-muted-foreground">Cargando empleados...</p>
@@ -394,8 +414,8 @@ export default function Home() {
           {!loadingEmployees && filteredEmployees.length === 0 && (
             <div className="flex justify-center items-center py-12">
               <p className="text-muted-foreground">
-                {selectedSede !== 'todos'
-                  ? 'No se encontraron empleados para la sede seleccionada.'
+                {selectedSede !== 'todos' || nameFilter || dniFilter
+                  ? 'No se encontraron empleados con los filtros actuales.'
                   : 'No hay empleados registrados.'}
               </p>
             </div>
@@ -458,3 +478,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

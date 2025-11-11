@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { startOfDay, endOfDay, format } from 'date-fns';
+import { Input } from '@/components/ui/input';
 
 export default function AttendancePage() {
   const [currentDate, setCurrentDate] = useState('');
@@ -24,6 +25,8 @@ export default function AttendancePage() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [nameFilter, setNameFilter] = useState('');
+  const [dniFilter, setDniFilter] = useState('');
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -45,11 +48,13 @@ export default function AttendancePage() {
   }, [employeesData]);
 
   const filteredEmployees = useMemo(() => {
-    if (selectedSede === 'todos') {
-      return employees;
-    }
-    return employees.filter((employee) => employee.sede?.nombre === selectedSede);
-  }, [employees, selectedSede]);
+    return employees.filter(employee => {
+      const sedeMatch = selectedSede === 'todos' || employee.sede?.nombre === selectedSede;
+      const nameMatch = employee.apellidosNombres.toLowerCase().includes(nameFilter.toLowerCase());
+      const dniMatch = employee.dni.includes(dniFilter);
+      return sedeMatch && nameMatch && dniMatch;
+    });
+  }, [employees, selectedSede, nameFilter, dniFilter]);
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
@@ -274,9 +279,24 @@ export default function AttendancePage() {
             </div>
           </div>
 
+          <div className="mb-6 flex flex-col md:flex-row gap-4">
+              <Input
+                placeholder="Filtrar por apellidos y nombres..."
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+                className="max-w-sm"
+              />
+              <Input
+                placeholder="Filtrar por DNI..."
+                value={dniFilter}
+                onChange={(e) => setDniFilter(e.target.value)}
+                className="max-w-xs"
+              />
+          </div>
+
           {loadingEmployees && <p>Cargando empleados...</p>}
-          {!loadingEmployees && filteredEmployees.length === 0 && selectedSede !== 'todos' && (
-            <p>No se encontraron empleados para la sede seleccionada.</p>
+          {!loadingEmployees && filteredEmployees.length === 0 && (
+            <p>No se encontraron empleados para los filtros seleccionados.</p>
           )}
 
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -308,3 +328,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    
