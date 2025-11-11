@@ -200,39 +200,96 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background/80 backdrop-blur-sm">
-      <header className="bg-card shadow-sm">
-        <div className="container mx-auto p-4 flex justify-between items-center">
-          <div className="flex-1"></div>
-          <h1 className="text-2xl font-bold text-primary font-headline tracking-tight text-center">Permanencia OTIN</h1>
-          <div className="flex-1 flex items-center justify-end gap-4">
-            {userData?.role === 'admin' && (
-              <Link href="/admin">
-                <Button variant="outline" size="icon" aria-label="Panel de Administrador">
-                  <UserCog className="h-5 w-5" />
-                </Button>
-              </Link>
-            )}
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Cerrar sesión">
-              <LogOut className="h-5 w-5" />
-            </Button>
+      <header className="bg-card shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-3 py-3 md:p-4">
+          {/* Mobile Header */}
+          <div className="flex md:hidden items-center justify-between mb-2">
+            <h1 className="text-lg font-bold text-primary font-headline tracking-tight">Permanencia OTIN</h1>
+            <div className="flex items-center gap-2">
+              {userData?.role === 'admin' && (
+                <Link href="/admin">
+                  <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Panel de Administrador">
+                    <UserCog className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout} aria-label="Cerrar sesión">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="md:hidden text-xs text-muted-foreground text-center">
+            {user.email}
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex-1"></div>
+            <h1 className="text-2xl font-bold text-primary font-headline tracking-tight text-center">Permanencia OTIN</h1>
+            <div className="flex-1 flex items-center justify-end gap-4">
+              {userData?.role === 'admin' && (
+                <Link href="/admin">
+                  <Button variant="outline" size="icon" aria-label="Panel de Administrador">
+                    <UserCog className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
+              <span className="text-sm text-muted-foreground">{user.email}</span>
+              <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Cerrar sesión">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto p-4 md:p-8">
-        <div className="mb-8 text-center md:text-left">
-          {currentDate && <p className="text-lg text-muted-foreground">Registrando para el {currentDate}</p>}
+      <main className="container mx-auto px-3 py-4 md:p-8">
+        <div className="mb-4 md:mb-8 text-center md:text-left">
+          {currentDate && <p className="text-sm md:text-lg text-muted-foreground">Registrando para el {currentDate}</p>}
         </div>
 
-        <section className="mb-8">
+        <section className="mb-6 md:mb-8">
           <AttendanceSummary attendances={attendanceArray} totalEmployees={filteredEmployees.length} />
         </section>
 
-        <Separator className="my-8 bg-border/50" />
+        <Separator className="my-6 md:my-8 bg-border/50" />
 
         <section>
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          {/* Mobile Layout */}
+          <div className="md:hidden space-y-4 mb-6">
+            <h2 className="text-2xl font-bold font-headline text-center">Lista de Personal</h2>
+
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="date-filter-mobile" className="text-xs font-medium">Fecha</Label>
+                <DatePicker date={selectedDate} setDate={setSelectedDate} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sede-filter-mobile" className="text-xs font-medium">Sede</Label>
+                <Select value={selectedSede} onValueChange={setSelectedSede}>
+                  <SelectTrigger className="w-full" id="sede-filter-mobile">
+                    <SelectValue placeholder="Todas las sedes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas las sedes</SelectItem>
+                    {loadingSedes ? (
+                      <SelectItem value="loading" disabled>Cargando...</SelectItem>
+                    ) : (
+                      (sedesData || []).map((sede) => (
+                        <SelectItem key={sede.id} value={sede.nombreSede}>
+                          {sede.nombreSede}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-3xl font-bold font-headline text-center md:text-left">Lista de Personal</h2>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <div className="flex items-center gap-2">
@@ -266,12 +323,50 @@ export default function Home() {
             </div>
           </div>
 
-          {loadingEmployees && <p>Cargando empleados...</p>}
-          {!loadingEmployees && filteredEmployees.length === 0 && selectedSede !== 'todos' && (
-            <p>No se encontraron empleados para la sede seleccionada.</p>
+          {loadingEmployees && (
+            <div className="flex justify-center items-center py-12">
+              <p className="text-muted-foreground">Cargando empleados...</p>
+            </div>
           )}
 
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+          {!loadingEmployees && filteredEmployees.length === 0 && (
+            <div className="flex justify-center items-center py-12">
+              <p className="text-muted-foreground">
+                {selectedSede !== 'todos'
+                  ? 'No se encontraron empleados para la sede seleccionada.'
+                  : 'No hay empleados registrados.'}
+              </p>
+            </div>
+          )}
+
+          {/* Mobile View - Cards */}
+          <div className="md:hidden space-y-3 pb-24">
+            {filteredEmployees.map((employee, index) => (
+              <EmployeeRow
+                key={employee.id}
+                employee={employee}
+                currentStatus={attendances.get(employee.id) || 'No Registrado'}
+                onStatusChange={handleStatusChange}
+                index={index}
+              />
+            ))}
+          </div>
+
+          {/* Floating Save Button for Mobile */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent z-20">
+            <Button
+              onClick={handleSaveAttendances}
+              disabled={isSaving}
+              className="w-full h-14 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow"
+              size="lg"
+            >
+              <Save className="mr-2 h-5 w-5" />
+              {isSaving ? 'Guardando...' : 'Guardar Asistencias'}
+            </Button>
+          </div>
+
+          {/* Desktop View - Table */}
+          <div className="hidden md:block rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <UiTableRow>

@@ -22,15 +22,20 @@ export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSum
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
       {summaryData.map((item, index) => (
-        <Card key={index} className="shadow-md hover:shadow-lg transition-shadow bg-card/80 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-card-foreground/80">{item.title}</CardTitle>
-            <item.icon className={`h-5 w-5 ${item.color}`} />
+        <Card key={index} className="shadow-sm hover:shadow-md transition-all duration-200 bg-card/80 backdrop-blur-sm border-l-4" style={{
+          borderLeftColor: item.color === 'text-primary' ? 'hsl(var(--primary))' :
+                          item.color === 'text-green-500' ? 'rgb(34 197 94)' :
+                          item.color === 'text-yellow-500' ? 'rgb(234 179 8)' :
+                          'hsl(var(--destructive))'
+        }}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 md:px-6 pt-3 md:pt-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-card-foreground/80">{item.title}</CardTitle>
+            <item.icon className={`h-4 w-4 md:h-5 md:w-5 ${item.color}`} />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{item.count}</div>
+          <CardContent className="px-3 md:px-6 pb-3 md:pb-6">
+            <div className="text-xl md:text-2xl font-bold text-card-foreground">{item.count}</div>
           </CardContent>
         </Card>
       ))}
