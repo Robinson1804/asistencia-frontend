@@ -50,6 +50,15 @@
         "phoneNumber": {
           "type": "string",
           "description": "Phone number of the employee."
+        },
+        "edad": {
+            "type": "number",
+            "description": "Age of the employee."
+        },
+        "correoPersonal": {
+            "type": "string",
+            "description": "Personal email address of the employee.",
+            "format": "email"
         }
       },
       "required": [
@@ -58,6 +67,53 @@
         "lastName",
         "email"
       ]
+    },
+    "ConocimientoEmpleado": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ConocimientoEmpleado",
+        "type": "object",
+        "description": "Represents the skills and knowledge of an employee.",
+        "properties": {
+            "employeeId": {
+                "type": "string",
+                "description": "The DNI of the employee this knowledge record belongs to."
+            },
+            "gradoInstruccion": {
+                "type": "string"
+            },
+            "cargo": {
+                "type": "string"
+            },
+            "añosExperiencia": {
+                "type": "string"
+            },
+            "frontend": {
+                "type": "object"
+            },
+            "backend": {
+                "type": "object"
+            },
+            "databases": {
+                "type": "object"
+            },
+            "devops": {
+                "type": "object"
+            },
+            "proyectosOtin": {
+                "type": "string"
+            },
+            "tecnologiasAprender": {
+                "type": "string"
+            },
+            "otrasTecnologias": {
+                "type": "string"
+            },
+             "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+             }
+        },
+        "required": ["employeeId"]
     },
     "AttendanceRecord": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -268,6 +324,22 @@
               "description": "Unique identifier for the employee."
             }
           ]
+        }
+      },
+      {
+        "path": "/conocimientos/{employeeId}",
+        "definition": {
+            "entityName": "ConocimientoEmpleado",
+            "schema": {
+                "$ref": "#/entities/ConocimientoEmpleado"
+            },
+            "description": "Stores employee skills and knowledge information. The employeeId is the DNI of the employee.",
+            "params": [
+                {
+                    "name": "employeeId",
+                    "description": "DNI of the employee."
+                }
+            ]
         }
       },
       {

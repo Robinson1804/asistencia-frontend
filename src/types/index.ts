@@ -11,6 +11,8 @@ export interface Employee {
   telefono: string | null;
   activo: boolean;
   avatarUrl?: string;
+  edad?: number;
+  correoPersonal?: string;
   // Campos anidados que tienes en Firebase
   proyecto?: {
     nombre: string;
@@ -59,6 +61,27 @@ export interface Employee {
   status?: AttendanceStatus;
   justification?: Justification;
 }
+
+export type NivelConocimiento = 'DESCONOCE' | 'BÁSICO' | 'INTERMEDIO' | 'AVANZADO';
+
+export interface ConocimientoEmpleado {
+    id?: string;
+    employeeId: string;
+    gradoInstruccion: string;
+    gradoInstruccionOtro?: string;
+    cargo: string;
+    cargoOtro?: string;
+    añosExperiencia: string;
+    frontend: Record<string, NivelConocimiento>;
+    backend: Record<string, NivelConocimiento>;
+    databases: Record<string, NivelConocimiento>;
+    devops: Record<string, NivelConocimiento>;
+    proyectosOtin: string;
+    tecnologiasAprender: string;
+    otrasTecnologias: string;
+    updatedAt?: any;
+}
+
 
 export interface AttendanceRecord  {
   id?: string;
