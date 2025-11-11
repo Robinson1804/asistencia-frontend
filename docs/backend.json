@@ -94,6 +94,42 @@
         "status"
       ]
     },
+    "Justification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Justification",
+      "type": "object",
+      "description": "Represents a justification for an absence or tardiness.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the justification."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "The ID of the employee this justification belongs to."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date of the absence or tardiness being justified."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of justification.",
+          "enum": ["Salud", "Motivos personales o familiares", "Estudio o capacitación", "Laborales", "Transporte", "Otros"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Detailed notes for the justification."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the justification was created."
+        }
+      },
+      "required": ["id", "employeeId", "date", "type", "notes", "createdAt"]
+    },
     "Coordinador": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Coordinador",
@@ -250,6 +286,22 @@
             {
               "name": "attendanceId",
               "description": "Unique identifier for the attendance record."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/justifications/{justificationId}",
+        "definition": {
+          "entityName": "Justification",
+          "schema": {
+            "$ref": "#/entities/Justification"
+          },
+          "description": "Stores justifications for absences and tardiness.",
+          "params": [
+            {
+              "name": "justificationId",
+              "description": "Unique identifier for the justification."
             }
           ]
         }

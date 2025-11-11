@@ -57,13 +57,26 @@ export interface Employee {
   fechaFin?: any;
   createdAt?: any;
   status?: AttendanceStatus;
+  justification?: Justification;
 }
 
 export interface AttendanceRecord  {
+  id?: string;
   employeeId: string;
   status: AttendanceStatus;
   timestamp?: any;
+  justificationType?: string;
+  justificationNotes?: string;
 };
+
+export interface Justification {
+  id: string;
+  employeeId: string;
+  date: any; // Timestamp
+  type: string;
+  notes: string;
+  createdAt: any; // Timestamp
+}
 
 export interface Sede {
   id: string;

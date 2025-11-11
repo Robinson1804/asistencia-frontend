@@ -3,20 +3,20 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import type { AttendanceStatus, Employee, Sede } from '@/types';
+import type { AttendanceStatus, Employee, Sede, Justification } from '@/types';
 import { AttendanceSummary } from '@/components/attendance/AttendanceSummary';
 import { EmployeeRow } from '@/components/attendance/EmployeeRow';
 import { DatePicker } from '@/components/attendance/DatePicker';
 import { Separator } from '@/components/ui/separator';
 import { useAuth, useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy } from 'firebase/firestore';
+import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy, addDoc } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { LogOut, Save, UserCog } from 'lucide-react';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 
@@ -67,6 +67,7 @@ export default function Home() {
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
+  const [justifications, setJustifications] = useState<Map<string, Justification>>(new Map());
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -84,29 +85,48 @@ export default function Home() {
     const fetchAttendancesForDate = async () => {
       if (!firestore) return;
 
-      const startOfSelectedDay = Timestamp.fromDate(startOfDay(selectedDate));
-      const endOfSelectedDay = Timestamp.fromDate(endOfDay(selectedDate));
+      const startOfSelectedDay = startOfDay(selectedDate);
+      const endOfSelectedDay = endOfDay(selectedDate);
 
-      const q = query(
+      // Fetch attendances
+      const attendanceQuery = query(
         collection(firestore, 'asistencias'),
-        where('timestamp', '>=', startOfSelectedDay),
-        where('timestamp', '<=', endOfSelectedDay)
+        where('timestamp', '>=', Timestamp.fromDate(startOfSelectedDay)),
+        where('timestamp', '<=', Timestamp.fromDate(endOfSelectedDay))
+      );
+      
+      // Fetch justifications
+      const justificationQuery = query(
+        collection(firestore, 'justificaciones'),
+        where('date', '==', Timestamp.fromDate(startOfSelectedDay))
       );
 
       try {
-        const querySnapshot = await getDocs(q);
+        const [attendanceSnapshot, justificationSnapshot] = await Promise.all([
+          getDocs(attendanceQuery),
+          getDocs(justificationQuery),
+        ]);
+
         const todaysAttendances = new Map<string, AttendanceStatus>();
-        querySnapshot.forEach((doc) => {
+        attendanceSnapshot.forEach((doc) => {
           const data = doc.data() as { employeeId: string; status: AttendanceStatus };
           todaysAttendances.set(data.employeeId, data.status);
         });
         setAttendances(new Map(todaysAttendances));
         setInitialAttendances(new Map(todaysAttendances));
+
+        const todaysJustifications = new Map<string, Justification>();
+        justificationSnapshot.forEach((doc) => {
+            const data = doc.data() as Justification;
+            todaysJustifications.set(data.employeeId, {...data, id: doc.id});
+        });
+        setJustifications(todaysJustifications);
+
       } catch (error) {
-        console.error('Error fetching attendances: ', error);
+        console.error('Error fetching data: ', error);
         toast({
           variant: 'destructive',
-          title: 'Error al cargar asistencias',
+          title: 'Error al cargar datos',
           description: 'No se pudieron cargar los registros de la fecha seleccionada.',
         });
       }
@@ -124,6 +144,14 @@ export default function Home() {
   const handleStatusChange = (employeeId: string, status: AttendanceStatus) => {
     setAttendances((prevAttendances) => new Map(prevAttendances).set(employeeId, status));
   };
+  
+  const handleJustificationSaved = (justification: Justification) => {
+    setJustifications(prev => new Map(prev).set(justification.employeeId, justification));
+     toast({
+        title: "Justificación Guardada",
+        description: "La justificación se ha guardado correctamente."
+    })
+  }
 
   const handleSaveAttendances = async () => {
     if (!firestore) {
@@ -145,16 +173,37 @@ export default function Home() {
 
     setIsSaving(true);
     const batch = writeBatch(firestore);
+    
+    const attendanceDate = startOfDay(selectedDate);
+    const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
 
-    const attendanceTimestamp = Timestamp.fromDate(selectedDate);
+    // Find existing attendance records to update them
+    const attendanceQuery = query(
+        collection(firestore, 'asistencias'),
+        where('timestamp', '==', attendanceTimestamp),
+        where('employeeId', 'in', Array.from(changes.keys()))
+    );
+
+    const querySnapshot = await getDocs(attendanceQuery);
+    const existingDocs = new Map<string, string>(); // employeeId -> docId
+    querySnapshot.forEach(doc => {
+        existingDocs.set(doc.data().employeeId, doc.id);
+    });
 
     changes.forEach((status, employeeId) => {
-      const docRef = doc(collection(firestore, 'asistencias'));
-      batch.set(docRef, {
-        employeeId,
-        status,
-        timestamp: attendanceTimestamp,
-      });
+        const docId = existingDocs.get(employeeId);
+        const docRef = docId ? doc(firestore, 'asistencias', docId) : doc(collection(firestore, 'asistencias'));
+
+        const payload = {
+            employeeId,
+            status,
+            timestamp: attendanceTimestamp,
+        };
+        if (docId) {
+            batch.update(docRef, payload);
+        } else {
+            batch.set(docRef, payload);
+        }
     });
 
     try {
@@ -202,7 +251,6 @@ export default function Home() {
     <div className="min-h-screen bg-background/80 backdrop-blur-sm">
       <header className="bg-card shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-3 py-3 md:p-4">
-          {/* Mobile Header */}
           <div className="flex md:hidden items-center justify-between mb-2">
             <h1 className="text-lg font-bold text-primary font-headline tracking-tight">Permanencia OTIN</h1>
             <div className="flex items-center gap-2">
@@ -222,7 +270,6 @@ export default function Home() {
             {user.email}
           </div>
 
-          {/* Desktop Header */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex-1"></div>
             <h1 className="text-2xl font-bold text-primary font-headline tracking-tight text-center">Permanencia OTIN</h1>
@@ -255,7 +302,6 @@ export default function Home() {
         <Separator className="my-6 md:my-8 bg-border/50" />
 
         <section>
-          {/* Mobile Layout */}
           <div className="md:hidden space-y-4 mb-6">
             <h2 className="text-2xl font-bold font-headline text-center">Lista de Personal</h2>
 
@@ -288,7 +334,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Desktop Layout */}
           <div className="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-3xl font-bold font-headline text-center md:text-left">Lista de Personal</h2>
             <div className="flex flex-wrap items-center justify-center gap-4">
@@ -339,7 +384,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Mobile View - Cards */}
           <div className="md:hidden space-y-3 pb-24">
             {filteredEmployees.map((employee, index) => (
               <EmployeeRow
@@ -348,11 +392,13 @@ export default function Home() {
                 currentStatus={attendances.get(employee.id) || 'No Registrado'}
                 onStatusChange={handleStatusChange}
                 index={index}
+                currentJustification={justifications.get(employee.id)}
+                onJustificationSaved={handleJustificationSaved}
+                selectedDate={selectedDate}
               />
             ))}
           </div>
 
-          {/* Floating Save Button for Mobile */}
           <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent z-20">
             <Button
               onClick={handleSaveAttendances}
@@ -365,14 +411,13 @@ export default function Home() {
             </Button>
           </div>
 
-          {/* Desktop View - Table */}
           <div className="hidden md:block rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <UiTableRow>
                   <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
-                  <TableHead className="text-center w-[300px] sm:w-[320px]">Estado de Asistencia</TableHead>
+                  <TableHead className="text-center w-[440px] sm:w-[440px]">Estado de Asistencia</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
@@ -383,6 +428,9 @@ export default function Home() {
                     currentStatus={attendances.get(employee.id) || 'No Registrado'}
                     onStatusChange={handleStatusChange}
                     index={index}
+                    currentJustification={justifications.get(employee.id)}
+                    onJustificationSaved={handleJustificationSaved}
+                    selectedDate={selectedDate}
                   />
                 ))}
               </TableBody>

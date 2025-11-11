@@ -1,12 +1,13 @@
 
 "use client";
 
-import type { Employee, AttendanceStatus } from "@/types";
+import { useState } from 'react';
+import type { Employee, AttendanceStatus, Justification } from "@/types";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, AlertCircle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -14,12 +15,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { JustificationModal } from './JustificationModal';
 
 interface EmployeeRowProps {
   employee: Employee;
   currentStatus: AttendanceStatus;
   onStatusChange: (employeeId: string, status: AttendanceStatus) => void;
   index: number;
+  currentJustification?: Justification;
+  onJustificationSaved: (justification: Justification) => void;
+  selectedDate: Date;
 }
 
 const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
@@ -32,7 +37,9 @@ const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
   </div>
 );
 
-export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: EmployeeRowProps) {
+export function EmployeeRow({ employee, currentStatus, onStatusChange, index, currentJustification, onJustificationSaved, selectedDate }: EmployeeRowProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
     { value: 'Presente', label: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
     { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
@@ -43,6 +50,8 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
 
   const groupIndex = Math.floor(index / 11);
   const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
+
+  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza';
 
   const employeeNameWithInfo = (
     <div className="flex items-center gap-2">
@@ -62,9 +71,25 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
     </div>
   );
 
+  const justificationButton = (isMobile = false) => (
+    <div key="justificar">
+      <Label
+        onClick={() => setIsModalOpen(true)}
+        className={cn(
+            "flex flex-col items-center justify-center rounded-md border-2 bg-popover p-2 text-xs font-medium cursor-pointer transition-colors duration-200",
+            "border-blue-500 text-blue-500 hover:bg-blue-500/10",
+            isMobile ? "h-20 gap-2" : "h-16",
+            currentJustification && "border-gray-400 text-gray-400 bg-gray-50 hover:bg-gray-100"
+        )}
+      >
+          <FileText className={cn("mb-1", isMobile ? "h-6 w-6" : "h-5 w-5")} />
+          <span>{currentJustification ? 'Justificado' : 'Justificar'}</span>
+      </Label>
+    </div>
+  );
+
   return (
     <>
-      {/* Mobile Card View - Hidden on screens 'md' and larger */}
       <div className={cn("md:hidden", rowColorClass)}>
           <Card className="p-4 shadow-sm border-0">
               <div className="space-y-3">
@@ -94,12 +119,12 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
                               </Label>
                           </div>
                       ))}
+                      {isJustifiable && justificationButton(true)}
                   </RadioGroup>
               </div>
           </Card>
       </div>
       
-      {/* Desktop Table Row - Hidden on screens smaller than 'md' */}
       <TableRow className={cn("hidden md:table-row", rowColorClass)}>
           <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
           <TableCell className="font-medium py-4">
@@ -109,7 +134,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
               <RadioGroup
                   value={currentStatus}
                   onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
-                  className="grid grid-cols-3 gap-2"
+                  className="grid grid-cols-4 gap-2"
               >
                   {statusOptions.map((option) => (
                       <div key={option.value}>
@@ -126,9 +151,22 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
                           </Label>
                       </div>
                   ))}
+                   {isJustifiable && justificationButton(false)}
               </RadioGroup>
           </TableCell>
       </TableRow>
+
+      <JustificationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        employee={employee}
+        date={selectedDate}
+        status={currentStatus}
+        onJustificationSaved={(justification) => {
+          onJustificationSaved(justification);
+          setIsModalOpen(false);
+        }}
+      />
     </>
   );
 }
