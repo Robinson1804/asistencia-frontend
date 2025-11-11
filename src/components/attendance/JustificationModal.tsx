@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -44,10 +45,11 @@ interface JustificationModalProps {
   employee: Employee;
   date: Date;
   status: AttendanceStatus;
+  justification?: Justification;
   onJustificationSaved: (justification: Justification) => void;
 }
 
-export function JustificationModal({ isOpen, onClose, employee, date, status, onJustificationSaved }: JustificationModalProps) {
+export function JustificationModal({ isOpen, onClose, employee, date, status, justification, onJustificationSaved }: JustificationModalProps) {
   const firestore = useFirestore();
 
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<JustificationFormData>({
@@ -57,6 +59,20 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, on
       notes: '',
     },
   });
+
+  useEffect(() => {
+    if (justification) {
+      reset({
+        type: justification.type,
+        notes: justification.notes,
+      });
+    } else {
+        reset({
+            type: '',
+            notes: ''
+        });
+    }
+  }, [justification, reset]);
 
   const onSubmit = async (data: JustificationFormData) => {
     if (!firestore) return;
@@ -88,14 +104,19 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, on
     }
   };
 
+  const isReadOnly = !!justification;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>Justificar Inasistencia</DialogTitle>
+            <DialogTitle>{isReadOnly ? 'Detalles de la Justificación' : 'Justificar Inasistencia'}</DialogTitle>
             <DialogDescription>
-              Registrar la justificación para {employee.apellidosNombres} por la {status.toLowerCase()} del día {date.toLocaleDateString()}.
+              {isReadOnly 
+                ? `Viendo la justificación para ${employee.apellidosNombres} por la ${status.toLowerCase()} del día ${date.toLocaleDateString()}.`
+                : `Registrar la justificación para ${employee.apellidosNombres} por la ${status.toLowerCase()} del día ${date.toLocaleDateString()}.`
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -105,7 +126,7 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, on
                 name="type"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
                     <SelectTrigger id="type">
                       <SelectValue placeholder="Seleccione un motivo..." />
                     </SelectTrigger>
@@ -127,7 +148,7 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, on
                 name="notes"
                 control={control}
                 render={({ field }) => (
-                  <Textarea id="notes" placeholder="Explique brevemente el motivo..." {...field} />
+                  <Textarea id="notes" placeholder="Explique brevemente el motivo..." {...field} readOnly={isReadOnly} />
                 )}
               />
               {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
@@ -135,11 +156,13 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, on
           </div>
           <DialogFooter>
             <DialogClose asChild>
-                <Button type="button" variant="secondary">Cancelar</Button>
+                <Button type="button" variant="secondary">Cerrar</Button>
             </DialogClose>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : 'Guardar Justificación'}
-            </Button>
+            {!isReadOnly && (
+                <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Guardando...' : 'Guardar Justificación'}
+                </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

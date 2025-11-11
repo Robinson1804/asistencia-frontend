@@ -90,7 +90,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
 
   return (
     <>
-      <div className={cn("md:hidden", rowColorClass)}>
+       <div className={cn("md:hidden", rowColorClass)}>
           <Card className="p-4 shadow-sm border-0">
               <div className="space-y-3">
                   <div className="font-medium text-sm leading-tight flex items-center justify-between">
@@ -102,7 +102,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
                   <RadioGroup
                       value={currentStatus}
                       onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
-                      className="grid grid-cols-3 gap-2"
+                      className="grid grid-cols-4 gap-2"
                   >
                       {statusOptions.map((option) => (
                           <div key={option.value}>
@@ -162,6 +162,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
         employee={employee}
         date={selectedDate}
         status={currentStatus}
+        justification={currentJustification}
         onJustificationSaved={(justification) => {
           onJustificationSaved(justification);
           setIsModalOpen(false);
