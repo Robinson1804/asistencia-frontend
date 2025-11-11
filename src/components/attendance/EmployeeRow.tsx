@@ -6,8 +6,14 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface EmployeeRowProps {
   employee: Employee;
@@ -15,6 +21,16 @@ interface EmployeeRowProps {
   onStatusChange: (employeeId: string, status: AttendanceStatus) => void;
   index: number;
 }
+
+const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
+  <div className="p-2 text-sm">
+    {employee.proyecto?.nombre && <p><strong>Proyecto:</strong> {employee.proyecto.nombre}</p>}
+    {employee.coordinador?.nombre && <p><strong>Coordinador:</strong> {employee.coordinador.nombre}</p>}
+    {employee.scrumMaster?.nombre && <p><strong>Scrum Master:</strong> {employee.scrumMaster.nombre}</p>}
+    {employee.division?.nombre && <p><strong>División:</strong> {employee.division.nombre}</p>}
+    {employee.modalidad?.nombre && <p><strong>Modalidad:</strong> {employee.modalidad.nombre}</p>}
+  </div>
+);
 
 export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: EmployeeRowProps) {
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
@@ -28,13 +44,36 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
   const groupIndex = Math.floor(index / 11);
   const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
 
+  const employeeNameWithInfo = (
+    <div className="flex items-center gap-2">
+      <span>{employeeName}</span>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button>
+              <AlertCircle className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="start">
+            <InfoTooltipContent employee={employee} />
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+
   return (
     <>
       {/* Mobile Card View - Hidden on screens 'md' and larger */}
       <div className={cn("md:hidden", rowColorClass)}>
-          <Card className="p-4 shadow-sm">
+          <Card className="p-4 shadow-sm border-0">
               <div className="space-y-3">
-                  <div className="font-medium text-sm leading-tight">{employeeName}</div>
+                  <div className="font-medium text-sm leading-tight flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-muted-foreground text-xs w-6">{index + 1}.</span>
+                      {employeeNameWithInfo}
+                    </div>
+                  </div>
                   <RadioGroup
                       value={currentStatus}
                       onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
@@ -62,8 +101,9 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index }: 
       
       {/* Desktop Table Row - Hidden on screens smaller than 'md' */}
       <TableRow className={cn("hidden md:table-row", rowColorClass)}>
+          <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
           <TableCell className="font-medium py-4">
-              {employeeName}
+              {employeeNameWithInfo}
           </TableCell>
           <TableCell className="py-4">
               <RadioGroup

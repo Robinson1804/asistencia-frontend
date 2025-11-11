@@ -217,6 +217,7 @@ export default function AttendancePage() {
             <Table>
               <TableHeader className="hidden sm:table-header-group">
                 <UiTableRow>
+                  <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
                   <TableHead className="text-center w-[300px] sm:w-[320px]">Estado de Asistencia</TableHead>
                 </UiTableRow>
