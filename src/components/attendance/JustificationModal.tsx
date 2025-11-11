@@ -18,8 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useFirestore } from '@/firebase';
-import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import type { Employee, Justification, AttendanceStatus } from '@/types';
 import { startOfDay } from 'date-fns';
 
@@ -50,8 +49,7 @@ interface JustificationModalProps {
 }
 
 export function JustificationModal({ isOpen, onClose, employee, date, status, justification, onJustificationSaved }: JustificationModalProps) {
-  const firestore = useFirestore();
-
+  
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<JustificationFormData>({
     resolver: zodResolver(justificationSchema),
     defaultValues: {
@@ -72,36 +70,19 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, ju
             notes: ''
         });
     }
-  }, [justification, reset]);
+  }, [justification, reset, isOpen]);
 
   const onSubmit = async (data: JustificationFormData) => {
-    if (!firestore) return;
-
-    const justificationPayload: Omit<Justification, 'id' | 'createdAt'> = {
+    const justificationPayload: Justification = {
+      // no id or createdAt yet, they will be added on DB save
       employeeId: employee.id,
       date: Timestamp.fromDate(startOfDay(date)),
       type: data.type,
       notes: data.notes,
     };
     
-    try {
-        const docRef = await addDoc(collection(firestore, 'justificaciones'), {
-            ...justificationPayload,
-            createdAt: serverTimestamp(),
-        });
-        
-        onJustificationSaved({
-            ...justificationPayload,
-            id: docRef.id,
-            createdAt: new Date(),
-        });
-
-        reset();
-
-    } catch (error) {
-        console.error('Error saving justification:', error);
-        // Aquí podrías usar un toast para notificar el error.
-    }
+    onJustificationSaved(justificationPayload);
+    reset();
   };
 
   const isReadOnly = !!justification;

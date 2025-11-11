@@ -70,12 +70,12 @@ export interface AttendanceRecord  {
 };
 
 export interface Justification {
-  id: string;
+  id?: string;
   employeeId: string;
   date: any; // Timestamp
   type: string;
   notes: string;
-  createdAt: any; // Timestamp
+  createdAt?: any; // Timestamp will be optional until saved
 }
 
 export interface Sede {

@@ -8,7 +8,7 @@ import { EmployeeRow } from '@/components/attendance/EmployeeRow';
 import { DatePicker } from '@/components/attendance/DatePicker';
 import { Separator } from '@/components/ui/separator';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy, addDoc } from 'firebase/firestore';
+import { collection, writeBatch, Timestamp, query, where, getDocs, doc, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
@@ -54,6 +54,7 @@ export default function AttendancePage() {
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [justifications, setJustifications] = useState<Map<string, Justification>>(new Map());
+  const [initialJustifications, setInitialJustifications] = useState<Map<string, Justification>>(new Map());
 
   useEffect(() => {
     const fetchAttendancesForDate = async () => {
@@ -94,7 +95,8 @@ export default function AttendancePage() {
             const data = doc.data() as Justification;
             todaysJustifications.set(data.employeeId, {...data, id: doc.id});
         });
-        setJustifications(todaysJustifications);
+        setJustifications(new Map(todaysJustifications));
+        setInitialJustifications(new Map(todaysJustifications));
 
       } catch (error) {
         console.error('Error fetching data: ', error);
@@ -121,10 +123,7 @@ export default function AttendancePage() {
   
   const handleJustificationSaved = (justification: Justification) => {
     setJustifications(prev => new Map(prev).set(justification.employeeId, justification));
-    toast({
-        title: "Justificación Guardada",
-        description: "La justificación se ha guardado correctamente."
-    })
+    // No toast here, will be saved on batch commit
   }
 
   const handleSaveAttendances = async () => {
@@ -133,15 +132,23 @@ export default function AttendancePage() {
       return;
     }
 
-    const changes = new Map<string, AttendanceStatus>();
+    const attendanceChanges = new Map<string, AttendanceStatus>();
     attendances.forEach((status, employeeId) => {
       if (initialAttendances.get(employeeId) !== status) {
-        changes.set(employeeId, status);
+        attendanceChanges.set(employeeId, status);
       }
     });
 
-    if (changes.size === 0) {
-      toast({ title: 'Sin cambios', description: 'No hay nuevas asistencias para guardar.' });
+    const justificationChanges = new Map<string, Justification>();
+    justifications.forEach((justification, employeeId) => {
+        // New justifications won't have an ID yet
+        if (!initialJustifications.has(employeeId) || !justification.id) {
+            justificationChanges.set(employeeId, justification);
+        }
+    });
+
+    if (attendanceChanges.size === 0 && justificationChanges.size === 0) {
+      toast({ title: 'Sin cambios', description: 'No hay nuevas asistencias o justificaciones para guardar.' });
       return;
     }
 
@@ -151,41 +158,51 @@ export default function AttendancePage() {
     const attendanceDate = startOfDay(selectedDate);
     const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
 
-    // Find existing attendance records to update them
-    const attendanceQuery = query(
-        collection(firestore, 'asistencias'),
-        where('timestamp', '==', attendanceTimestamp),
-        where('employeeId', 'in', Array.from(changes.keys()))
-    );
+    // --- Handle Attendance Changes ---
+    if (attendanceChanges.size > 0) {
+        const attendanceQuery = query(
+            collection(firestore, 'asistencias'),
+            where('timestamp', '==', attendanceTimestamp),
+            where('employeeId', 'in', Array.from(attendanceChanges.keys()))
+        );
 
-    const querySnapshot = await getDocs(attendanceQuery);
-    const existingDocs = new Map<string, string>(); // employeeId -> docId
-    querySnapshot.forEach(doc => {
-        existingDocs.set(doc.data().employeeId, doc.id);
+        const querySnapshot = await getDocs(attendanceQuery);
+        const existingDocs = new Map<string, string>(); // employeeId -> docId
+        querySnapshot.forEach(doc => {
+            existingDocs.set(doc.data().employeeId, doc.id);
+        });
+
+        attendanceChanges.forEach((status, employeeId) => {
+            const docId = existingDocs.get(employeeId);
+            const docRef = docId ? doc(firestore, 'asistencias', docId) : doc(collection(firestore, 'asistencias'));
+
+            const payload = {
+                employeeId,
+                status,
+                timestamp: attendanceTimestamp,
+            };
+            if (docId) {
+                batch.update(docRef, payload);
+            } else {
+                batch.set(docRef, payload);
+            }
+        });
+    }
+    
+    // --- Handle Justification Changes ---
+    justificationChanges.forEach((justification) => {
+        const docRef = doc(collection(firestore, 'justificaciones'));
+        batch.set(docRef, { ...justification, createdAt: serverTimestamp() });
     });
 
-    changes.forEach((status, employeeId) => {
-        const docId = existingDocs.get(employeeId);
-        const docRef = docId ? doc(firestore, 'asistencias', docId) : doc(collection(firestore, 'asistencias'));
-
-        const payload = {
-            employeeId,
-            status,
-            timestamp: attendanceTimestamp,
-        };
-        if (docId) {
-            batch.update(docRef, payload);
-        } else {
-            batch.set(docRef, payload);
-        }
-    });
 
     try {
       await batch.commit();
       setInitialAttendances(new Map(attendances));
+      setInitialJustifications(new Map(justifications));
       toast({
-        title: 'Asistencia guardada',
-        description: `Se guardaron ${changes.size} registros de asistencia.`,
+        title: 'Cambios guardados',
+        description: `Se guardaron ${attendanceChanges.size} registros de asistencia y ${justificationChanges.size} justificaciones.`,
       });
     } catch (error) {
       console.error('Error writing batch: ', error);
