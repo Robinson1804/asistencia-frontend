@@ -108,14 +108,14 @@ export default function EmployeeFormPage() {
       email: '',
       telefono: '',
       activo: true,
-      proyectoId: '',
-      sedeId: '',
-      modalidadId: '',
-      tipoContratoId: '',
-      dttId: '',
-      coordinadorId: '',
-      divisionId: '',
-      scrumMasterId: '',
+      proyectoId: undefined,
+      sedeId: undefined,
+      modalidadId: undefined,
+      tipoContratoId: undefined,
+      dttId: undefined,
+      coordinadorId: undefined,
+      divisionId: undefined,
+      scrumMasterId: undefined,
     }
   });
 
@@ -129,7 +129,7 @@ export default function EmployeeFormPage() {
         setValue('divisionId', divisionId, { shouldValidate: true });
       }
     } else if (!coordinadorId) {
-      setValue('divisionId', '', { shouldValidate: true });
+      setValue('divisionId', undefined, { shouldValidate: true });
     }
   }, [coordinadorId, setValue, divisionesData]);
 
@@ -373,7 +373,6 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar coordinador..." /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Sin Coordinador</SelectItem>
                                 {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -433,5 +432,3 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
-
-    
