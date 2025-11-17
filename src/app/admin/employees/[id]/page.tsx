@@ -102,16 +102,21 @@ export default function EmployeeFormPage() {
     }
   });
 
-  const coordinadorId = watch('coordinadorId');
+  const scrumMasterId = watch('scrumMasterId');
 
   useEffect(() => {
-    if (coordinadorId && relacionesData) {
-      const relacion = relacionesData.find(r => r.coordinadorId === coordinadorId);
-      if (relacion && relacion.divisionId) {
+    if (scrumMasterId && relacionesData) {
+      const relacion = relacionesData.find(r => r.scrumMasterId === scrumMasterId);
+      if (relacion) {
+        setValue('coordinadorId', relacion.coordinadorId, { shouldValidate: true });
         setValue('divisionId', relacion.divisionId, { shouldValidate: true });
       }
+    } else {
+        // If scrum master is deselected, clear the other fields
+        setValue('coordinadorId', undefined);
+        setValue('divisionId', undefined);
     }
-  }, [coordinadorId, setValue, relacionesData]);
+  }, [scrumMasterId, setValue, relacionesData]);
 
 
   useEffect(() => {
@@ -344,14 +349,30 @@ export default function EmployeeFormPage() {
                 />
             </div>
 
+             <div className="space-y-2">
+                <Label htmlFor="scrumMasterId">Scrum Master</Label>
+                 <Controller
+                    name="scrumMasterId"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
+                            <SelectContent>
+                                {(scrumMastersData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+            </div>
+
             <div className="space-y-2">
                 <Label htmlFor="coordinadorId">Coordinador</Label>
                  <Controller
                     name="coordinadorId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar coordinador..." /></SelectTrigger>
+                        <Select onValueChange={field.onChange} value={field.value} disabled>
+                            <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
                             </SelectContent>
@@ -370,22 +391,6 @@ export default function EmployeeFormPage() {
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="scrumMasterId">Scrum Master</Label>
-                 <Controller
-                    name="scrumMasterId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
-                            <SelectContent>
-                                {(scrumMastersData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -412,5 +417,3 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
-
-    

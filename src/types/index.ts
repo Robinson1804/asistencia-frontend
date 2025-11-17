@@ -157,7 +157,6 @@ export interface RelacionDivision {
   id: string;
   coordinadorId: string;
   divisionId: string;
+  scrumMasterId: string;
 }
-    
-
     
