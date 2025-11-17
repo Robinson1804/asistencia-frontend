@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, collection } from 'firebase/firestore';
-import type { Employee, Proyecto, Sede, Modalidad, TipoContrato, Dtt, Coordinador, Division, ScrumMaster } from '@/types';
+import type { Employee, Proyecto, Sede, Modalidad, TipoContrato, Dtt, Coordinador, Division, ScrumMaster, RelacionDivision } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,26 +36,6 @@ const employeeSchema = z.object({
 
 type EmployeeFormData = z.infer<typeof employeeSchema>;
 
-// Relación entre IDs de coordinadores y IDs de divisiones
-const coordinadorToDivisionMap: Record<string, string> = {
-  // BERTHA ARCONDO -> INGENIERÍA DE DATOS
-  'QJ6a6pYqNBWpGrfJ5pZq': 'YdY8w8b8v8x8y8z8A8B8',
-  // ARLETT AGUERO -> PROCESOS Y CALIDAD
-  'f51c750b-8e8d-4f18-b29b-248386345d31': 'WdC8E8F8G8H8I8J8K8L8',
-  // EDUARDO CORILLA -> ADMINISTRACIÓN DE PROYECTOS
-  '456': 'UdS8A8B8C8D8E8F8G8H8',
-  // FLOR HUAYHUA -> SEGURIDAD IA Y SDMX
-  '789': 'Zd08F8G8H8I8J8K8L8M8',
-  // KARINA SARAVIA -> MONITOREO DE ENCUESTAS
-  'abc': 'VdT8B8C8D8E8F8G8H8I8',
-  // YIMMY ROJAS -> GEOMÁTICA
-  'def': 'XdX8C8D8E8F8G8H8I8J8',
-  // MICHAEL MALAGA -> INFRAESTRUCTURA
-  'ghi': 'XcY8D8E8F8G8H8I8J8K8',
-  // NOTA: EDUARDO CORILLA también está en SISTEMAS ADMINISTRATIVOS, esta lógica
-  // solo puede manejar una relación 1 a 1 desde coordinador a división.
-  // Si se necesita una lógica más compleja, se debe revisar.
-};
 
 export default function EmployeeFormPage() {
   const router = useRouter();
@@ -97,6 +77,9 @@ export default function EmployeeFormPage() {
   const { data: scrumMastersData, isLoading: loadingScrumMasters } = useCollection<ScrumMaster>(
     useMemoFirebase(() => firestore ? collection(firestore, 'scrumMasters') : null, [firestore])
   );
+  const { data: relacionesData, isLoading: loadingRelaciones } = useCollection<RelacionDivision>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'relacionesDivision') : null, [firestore])
+  );
 
 
   const { control, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<EmployeeFormData>({
@@ -122,16 +105,13 @@ export default function EmployeeFormPage() {
   const coordinadorId = watch('coordinadorId');
 
   useEffect(() => {
-    if (coordinadorId && coordinadorToDivisionMap[coordinadorId]) {
-      const divisionId = coordinadorToDivisionMap[coordinadorId];
-      // Verifica si la división existe en los datos cargados
-      if (divisionesData?.some(d => d.id === divisionId)) {
-        setValue('divisionId', divisionId, { shouldValidate: true });
+    if (coordinadorId && relacionesData) {
+      const relacion = relacionesData.find(r => r.coordinadorId === coordinadorId);
+      if (relacion && relacion.divisionId) {
+        setValue('divisionId', relacion.divisionId, { shouldValidate: true });
       }
-    } else if (!coordinadorId) {
-      setValue('divisionId', undefined, { shouldValidate: true });
     }
-  }, [coordinadorId, setValue, divisionesData]);
+  }, [coordinadorId, setValue, relacionesData]);
 
 
   useEffect(() => {
@@ -215,7 +195,7 @@ export default function EmployeeFormPage() {
     }
   };
 
-  if (loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts || loadingCoordinadores || loadingDivisiones || loadingScrumMasters) {
+  if (loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts || loadingCoordinadores || loadingDivisiones || loadingScrumMasters || loadingRelaciones) {
     return <div className="flex min-h-screen items-center justify-center"><p>Cargando datos...</p></div>;
   }
   
@@ -387,7 +367,7 @@ export default function EmployeeFormPage() {
                     control={control}
                     render={({ field }) => (
                         <Select onValueChange={field.onChange} value={field.value} disabled>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar división..." /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
                             </SelectContent>
@@ -432,3 +412,5 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
+
+    

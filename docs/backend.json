@@ -284,6 +284,24 @@
         }
       },
       "required": ["id", "nombreSede", "activo"]
+    },
+    "RelacionDivision": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RelacionDivision",
+      "type": "object",
+      "description": "Represents the relationship between a coordinator and a division.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "coordinadorId": {
+          "type": "string"
+        },
+        "divisionId": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "coordinadorId", "divisionId"]
     }
   },
   "auth": {
@@ -457,7 +475,25 @@
             }
           ]
         }
+      },
+      {
+        "path": "/relacionesDivision/{relacionId}",
+        "definition": {
+          "entityName": "RelacionDivision",
+          "schema": {
+            "$ref": "#/entities/RelacionDivision"
+          },
+          "description": "Stores the relationship between coordinators and divisions.",
+          "params": [
+            {
+              "name": "relacionId",
+              "description": "Unique identifier for the relationship."
+            }
+          ]
+        }
       }
     ]
   }
 }
+
+    

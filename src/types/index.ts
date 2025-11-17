@@ -153,4 +153,11 @@ export interface ScrumMaster {
     activo: boolean;
 }
 
+export interface RelacionDivision {
+  id: string;
+  coordinadorId: string;
+  divisionId: string;
+}
+    
+
     
