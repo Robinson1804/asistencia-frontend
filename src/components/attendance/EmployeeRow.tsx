@@ -25,6 +25,7 @@ interface EmployeeRowProps {
   currentJustification?: Justification;
   onJustificationSaved: (justification: Justification) => void;
   selectedDate: Date;
+  variant?: 'mobile' | 'desktop';
 }
 
 const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
@@ -37,7 +38,7 @@ const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
   </div>
 );
 
-export function EmployeeRow({ employee, currentStatus, onStatusChange, index, currentJustification, onJustificationSaved, selectedDate }: EmployeeRowProps) {
+export function EmployeeRow({ employee, currentStatus, onStatusChange, index, currentJustification, onJustificationSaved, selectedDate, variant = 'desktop' }: EmployeeRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
@@ -88,72 +89,93 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
     </div>
   );
 
+  // Mobile version
+  if (variant === 'mobile') {
+    return (
+      <>
+        <div className={rowColorClass}>
+          <Card className="p-4 shadow-sm border-0">
+            <div className="space-y-3">
+              <div className="font-medium text-sm leading-tight flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-muted-foreground text-xs w-6">{index + 1}.</span>
+                  {employeeNameWithInfo}
+                </div>
+              </div>
+              <RadioGroup
+                value={currentStatus}
+                onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
+                className="grid grid-cols-4 gap-2"
+              >
+                {statusOptions.map((option) => (
+                  <div key={option.value}>
+                    <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}-mobile`} className="sr-only" />
+                    <Label
+                      htmlFor={`${employee.id}-${option.value}-mobile`}
+                      className={cn(
+                        "flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-3 text-xs font-medium hover:bg-accent/20 cursor-pointer transition-all duration-200 h-20 gap-2",
+                        currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-md scale-105` : "text-muted-foreground hover:scale-105"
+                      )}
+                    >
+                      <option.icon className={cn("h-6 w-6 transition-colors", currentStatus === option.value ? option.color : "")} />
+                      <span className="text-[10px] font-semibold">{option.label}</span>
+                    </Label>
+                  </div>
+                ))}
+                {isJustifiable && justificationButton(true)}
+              </RadioGroup>
+            </div>
+          </Card>
+        </div>
+
+        <JustificationModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          employee={employee}
+          date={selectedDate}
+          status={currentStatus}
+          justification={currentJustification}
+          onJustificationSaved={(justification) => {
+            onJustificationSaved(justification);
+            setIsModalOpen(false);
+          }}
+        />
+      </>
+    );
+  }
+
+  // Desktop version
   return (
     <>
-       <div className={cn("md:hidden", rowColorClass)}>
-          <Card className="p-4 shadow-sm border-0">
-              <div className="space-y-3">
-                  <div className="font-medium text-sm leading-tight flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-muted-foreground text-xs w-6">{index + 1}.</span>
-                      {employeeNameWithInfo}
-                    </div>
-                  </div>
-                  <RadioGroup
-                      value={currentStatus}
-                      onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
-                      className="grid grid-cols-4 gap-2"
-                  >
-                      {statusOptions.map((option) => (
-                          <div key={option.value}>
-                              <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}-mobile`} className="sr-only" />
-                              <Label
-                                  htmlFor={`${employee.id}-${option.value}-mobile`}
-                                  className={cn(
-                                      "flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-3 text-xs font-medium hover:bg-accent/20 cursor-pointer transition-all duration-200 h-20 gap-2",
-                                      currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-md scale-105` : "text-muted-foreground hover:scale-105"
-                                  )}
-                              >
-                                  <option.icon className={cn("h-6 w-6 transition-colors", currentStatus === option.value ? option.color : "")} />
-                                  <span className="text-[10px] font-semibold">{option.label}</span>
-                              </Label>
-                          </div>
-                      ))}
-                      {isJustifiable && justificationButton(true)}
-                  </RadioGroup>
+      <TableRow className={rowColorClass}>
+        <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
+        <TableCell className="font-medium py-4">
+          {employeeNameWithInfo}
+        </TableCell>
+        <TableCell className="py-4">
+          <RadioGroup
+            value={currentStatus}
+            onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
+            className="grid grid-cols-4 gap-2"
+          >
+            {statusOptions.map((option) => (
+              <div key={option.value}>
+                <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}`} className="sr-only" />
+                <Label
+                  htmlFor={`${employee.id}-${option.value}`}
+                  className={cn(
+                    "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-xs font-medium hover:bg-accent/10 cursor-pointer transition-colors duration-200 h-16",
+                    currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-inner` : "text-muted-foreground"
+                  )}
+                >
+                  <option.icon className={cn("h-5 w-5 mb-1 transition-colors", currentStatus === option.value ? option.color : "")} />
+                  {option.label}
+                </Label>
               </div>
-          </Card>
-      </div>
-      
-      <TableRow className={cn("hidden md:table-row", rowColorClass)}>
-          <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
-          <TableCell className="font-medium py-4">
-              {employeeNameWithInfo}
-          </TableCell>
-          <TableCell className="py-4">
-              <RadioGroup
-                  value={currentStatus}
-                  onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
-                  className="grid grid-cols-4 gap-2"
-              >
-                  {statusOptions.map((option) => (
-                      <div key={option.value}>
-                          <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}`} className="sr-only" />
-                          <Label
-                              htmlFor={`${employee.id}-${option.value}`}
-                              className={cn(
-                                  "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-xs font-medium hover:bg-accent/10 cursor-pointer transition-colors duration-200 h-16",
-                                  currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-inner` : "text-muted-foreground"
-                              )}
-                          >
-                              <option.icon className={cn("h-5 w-5 mb-1 transition-colors", currentStatus === option.value ? option.color : "")} />
-                              {option.label}
-                          </Label>
-                      </div>
-                  ))}
-                   {isJustifiable && justificationButton(false)}
-              </RadioGroup>
-          </TableCell>
+            ))}
+            {isJustifiable && justificationButton(false)}
+          </RadioGroup>
+        </TableCell>
       </TableRow>
 
       <JustificationModal

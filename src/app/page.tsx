@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { LogOut, Save, UserCog } from 'lucide-react';
+import { LogOut, Save, UserCog, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
@@ -27,9 +27,12 @@ export default function Home() {
   const [selectedSede, setSelectedSede] = useState<string>('todos');
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [nameFilter, setNameFilter] = useState('');
   const [dniFilter, setDniFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const EMPLOYEES_PER_PAGE = 22;
 
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
@@ -69,6 +72,19 @@ export default function Home() {
       return sedeMatch && nameMatch && dniMatch;
     });
   }, [employees, selectedSede, nameFilter, dniFilter]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedSede, nameFilter, dniFilter]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE);
+  const paginatedEmployees = useMemo(() => {
+    const startIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE;
+    const endIndex = startIndex + EMPLOYEES_PER_PAGE;
+    return filteredEmployees.slice(startIndex, endIndex);
+  }, [filteredEmployees, currentPage]);
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
@@ -163,80 +179,109 @@ export default function Home() {
       return;
     }
 
+    // Create a Set of employee IDs on the current page for quick lookup
+    const currentPageEmployeeIds = new Set(paginatedEmployees.map(emp => emp.id));
+
     const attendanceChanges = new Map<string, AttendanceStatus>();
     attendances.forEach((status, employeeId) => {
-      if (initialAttendances.get(employeeId) !== status) {
+      // Only save changes for employees on the current page
+      if (currentPageEmployeeIds.has(employeeId) && initialAttendances.get(employeeId) !== status) {
         attendanceChanges.set(employeeId, status);
       }
     });
 
     const justificationChanges = new Map<string, Justification>();
     justifications.forEach((justification, employeeId) => {
+        // Only save changes for employees on the current page
         // New justifications won't have an ID yet
-        if (!initialJustifications.has(employeeId) || !justification.id) {
+        if (currentPageEmployeeIds.has(employeeId) && (!initialJustifications.has(employeeId) || !justification.id)) {
             justificationChanges.set(employeeId, justification);
         }
     });
 
     if (attendanceChanges.size === 0 && justificationChanges.size === 0) {
-      toast({ title: 'Sin cambios', description: 'No hay nuevas asistencias o justificaciones para guardar.' });
+      toast({ title: 'Sin cambios', description: 'No hay nuevas asistencias o justificaciones para guardar en esta página.' });
       return;
     }
 
     setIsSaving(true);
-    const batch = writeBatch(firestore);
-    
-    const attendanceDate = startOfDay(selectedDate);
-    const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
-
-    // --- Handle Attendance Changes ---
-    if (attendanceChanges.size > 0) {
-        const attendanceQuery = query(
-            collection(firestore, 'asistencias'),
-            where('timestamp', '==', attendanceTimestamp),
-            where('employeeId', 'in', Array.from(attendanceChanges.keys()))
-        );
-
-        const querySnapshot = await getDocs(attendanceQuery);
-        const existingDocs = new Map<string, string>(); // employeeId -> docId
-        querySnapshot.forEach(doc => {
-            existingDocs.set(doc.data().employeeId, doc.id);
-        });
-
-        attendanceChanges.forEach((status, employeeId) => {
-            const docId = existingDocs.get(employeeId);
-            const docRef = docId ? doc(firestore, 'asistencias', docId) : doc(collection(firestore, 'asistencias'));
-
-            const payload = {
-                employeeId,
-                status,
-                timestamp: attendanceTimestamp,
-            };
-            if (docId) {
-                batch.update(docRef, payload);
-            } else {
-                batch.set(docRef, payload);
-            }
-        });
-    }
-
-    // --- Handle Justification Changes ---
-    justificationChanges.forEach((justification) => {
-        const docRef = doc(collection(firestore, 'justificaciones'));
-        batch.set(docRef, { ...justification, createdAt: serverTimestamp() });
-    });
-
 
     try {
-      await batch.commit();
+      const attendanceDate = startOfDay(selectedDate);
+      const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
+      const dateStr = attendanceDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // --- OPTIMIZED: Use composite document IDs instead of queries ---
+      // Document ID format: {employeeId}_{YYYY-MM-DD}
+      // This eliminates the need for queries and 'in' operator limitations
+
+      const batches: any[] = [];
+      let currentBatch = writeBatch(firestore);
+      let operationCount = 0;
+      const MAX_BATCH_SIZE = 500;
+
+      // Handle Attendance Changes with composite IDs
+      if (attendanceChanges.size > 0) {
+        attendanceChanges.forEach((status, employeeId) => {
+          const compositeId = `${employeeId}_${dateStr}`;
+          const docRef = doc(firestore, 'asistencias', compositeId);
+
+          const payload = {
+            employeeId,
+            status,
+            timestamp: attendanceTimestamp,
+            updatedAt: Timestamp.now(),
+          };
+
+          currentBatch.set(docRef, payload, { merge: true });
+          operationCount++;
+
+          // Create new batch if we hit the limit
+          if (operationCount >= MAX_BATCH_SIZE) {
+            batches.push(currentBatch);
+            currentBatch = writeBatch(firestore);
+            operationCount = 0;
+          }
+        });
+      }
+
+      // Handle Justification Changes
+      justificationChanges.forEach((justification) => {
+        const docRef = doc(collection(firestore, 'justificaciones'));
+        currentBatch.set(docRef, { ...justification, createdAt: serverTimestamp() });
+        operationCount++;
+
+        if (operationCount >= MAX_BATCH_SIZE) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(firestore);
+          operationCount = 0;
+        }
+      });
+
+      // Add the last batch if it has operations
+      if (operationCount > 0) {
+        batches.push(currentBatch);
+      }
+
+      // Commit all batches sequentially with progress feedback
+      const totalBatches = batches.length;
+      for (let i = 0; i < totalBatches; i++) {
+        await batches[i].commit();
+        const progress = ((i + 1) / totalBatches) * 100;
+        setSavingProgress(Math.round(progress));
+      }
+
       setInitialAttendances(new Map(attendances));
       setInitialJustifications(new Map(justifications));
+      setSavingProgress(0);
+
       toast({
-        title: 'Cambios guardados',
-        description: `Se guardaron ${attendanceChanges.size} registros de asistencia y ${justificationChanges.size} justificaciones.`,
+        title: '✓ Cambios guardados exitosamente',
+        description: `Se guardaron ${attendanceChanges.size} registros de asistencia${justificationChanges.size > 0 ? ` y ${justificationChanges.size} justificaciones` : ''}.`,
       });
     } catch (error) {
       console.error('Error writing batch: ', error);
+      setSavingProgress(0);
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
@@ -244,6 +289,7 @@ export default function Home() {
       });
     } finally {
       setIsSaving(false);
+      setSavingProgress(0);
     }
   };
 
@@ -383,9 +429,9 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleSaveAttendances} disabled={isSaving}>
+              <Button onClick={handleSaveAttendances} disabled={isSaving} className="min-w-[200px]">
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? 'Guardando...' : 'Guardar Asistencias'}
+                {isSaving ? (savingProgress > 0 ? `Guardando ${savingProgress}%` : 'Guardando...') : 'Guardar Asistencias'}
               </Button>
             </div>
           </div>
@@ -422,29 +468,66 @@ export default function Home() {
           )}
 
           <div className="md:hidden space-y-3 pb-24">
-            {filteredEmployees.map((employee, index) => (
-              <EmployeeRow
-                key={employee.id}
-                employee={employee}
-                currentStatus={attendances.get(employee.id) || 'No Registrado'}
-                onStatusChange={handleStatusChange}
-                index={index}
-                currentJustification={justifications.get(employee.id)}
-                onJustificationSaved={handleJustificationSaved}
-                selectedDate={selectedDate}
-              />
-            ))}
+            {paginatedEmployees.map((employee, index) => {
+              const globalIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE + index;
+              return (
+                <EmployeeRow
+                  key={employee.id}
+                  employee={employee}
+                  currentStatus={attendances.get(employee.id) || 'No Registrado'}
+                  onStatusChange={handleStatusChange}
+                  index={globalIndex}
+                  currentJustification={justifications.get(employee.id)}
+                  onJustificationSaved={handleJustificationSaved}
+                  selectedDate={selectedDate}
+                  variant="mobile"
+                />
+              );
+            })}
+
+            {/* Pagination controls for mobile */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground px-4">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent z-20">
             <Button
               onClick={handleSaveAttendances}
               disabled={isSaving}
-              className="w-full h-14 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow"
+              className="w-full h-14 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow relative overflow-hidden"
               size="lg"
             >
-              <Save className="mr-2 h-5 w-5" />
-              {isSaving ? 'Guardando...' : 'Guardar Asistencias'}
+              {isSaving && savingProgress > 0 && (
+                <div
+                  className="absolute left-0 top-0 h-full bg-primary/20 transition-all duration-300"
+                  style={{ width: `${savingProgress}%` }}
+                />
+              )}
+              <div className="relative z-10 flex items-center justify-center">
+                <Save className="mr-2 h-5 w-5" />
+                {isSaving ? (savingProgress > 0 ? `Guardando ${savingProgress}%` : 'Guardando...') : 'Guardar Asistencias'}
+              </div>
             </Button>
           </div>
 
@@ -458,20 +541,49 @@ export default function Home() {
                 </UiTableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee, index) => (
-                  <EmployeeRow
-                    key={employee.id}
-                    employee={employee}
-                    currentStatus={attendances.get(employee.id) || 'No Registrado'}
-                    onStatusChange={handleStatusChange}
-                    index={index}
-                    currentJustification={justifications.get(employee.id)}
-                    onJustificationSaved={handleJustificationSaved}
-                    selectedDate={selectedDate}
-                  />
-                ))}
+                {paginatedEmployees.map((employee, index) => {
+                  const globalIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE + index;
+                  return (
+                    <EmployeeRow
+                      key={employee.id}
+                      employee={employee}
+                      currentStatus={attendances.get(employee.id) || 'No Registrado'}
+                      onStatusChange={handleStatusChange}
+                      index={globalIndex}
+                      currentJustification={justifications.get(employee.id)}
+                      onJustificationSaved={handleJustificationSaved}
+                      selectedDate={selectedDate}
+                      variant="desktop"
+                    />
+                  );
+                })}
               </TableBody>
             </Table>
+
+            {/* Pagination controls for desktop */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 py-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Anterior
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </section>
       </main>

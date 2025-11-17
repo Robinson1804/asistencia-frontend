@@ -20,13 +20,14 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Textarea } from '../ui/textarea';
 
 const skillLevels = ['DESCONOCE', 'BÁSICO', 'INTERMEDIO', 'AVANZADO'] as const;
+const skillLevelsTuple: [string, ...string[]] = [...skillLevels];
 
 const createSkillSchema = (keys: string[]) => {
     return z.object(
         keys.reduce((acc, key) => {
-            acc[key] = z.enum(skillLevels);
+            acc[key] = z.enum(skillLevelsTuple);
             return acc;
-        }, {} as Record<string, z.ZodEnum<typeof skillLevels>>)
+        }, {} as Record<string, z.ZodEnum<[string, ...string[]]>>)
     );
 };
 

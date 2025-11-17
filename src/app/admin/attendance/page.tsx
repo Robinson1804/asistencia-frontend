@@ -158,56 +158,74 @@ export default function AttendancePage() {
     }
 
     setIsSaving(true);
-    const batch = writeBatch(firestore);
-    
-    const attendanceDate = startOfDay(selectedDate);
-    const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
-
-    // --- Handle Attendance Changes ---
-    if (attendanceChanges.size > 0) {
-        const attendanceQuery = query(
-            collection(firestore, 'asistencias'),
-            where('timestamp', '==', attendanceTimestamp),
-            where('employeeId', 'in', Array.from(attendanceChanges.keys()))
-        );
-
-        const querySnapshot = await getDocs(attendanceQuery);
-        const existingDocs = new Map<string, string>(); // employeeId -> docId
-        querySnapshot.forEach(doc => {
-            existingDocs.set(doc.data().employeeId, doc.id);
-        });
-
-        attendanceChanges.forEach((status, employeeId) => {
-            const docId = existingDocs.get(employeeId);
-            const docRef = docId ? doc(firestore, 'asistencias', docId) : doc(collection(firestore, 'asistencias'));
-
-            const payload = {
-                employeeId,
-                status,
-                timestamp: attendanceTimestamp,
-            };
-            if (docId) {
-                batch.update(docRef, payload);
-            } else {
-                batch.set(docRef, payload);
-            }
-        });
-    }
-    
-    // --- Handle Justification Changes ---
-    justificationChanges.forEach((justification) => {
-        const docRef = doc(collection(firestore, 'justificaciones'));
-        batch.set(docRef, { ...justification, createdAt: serverTimestamp() });
-    });
-
 
     try {
-      await batch.commit();
+      const attendanceDate = startOfDay(selectedDate);
+      const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
+      const dateStr = attendanceDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // --- OPTIMIZED: Use composite document IDs instead of queries ---
+      // Document ID format: {employeeId}_{YYYY-MM-DD}
+      // This eliminates the need for queries and 'in' operator limitations
+
+      const batches: any[] = [];
+      let currentBatch = writeBatch(firestore);
+      let operationCount = 0;
+      const MAX_BATCH_SIZE = 500;
+
+      // Handle Attendance Changes with composite IDs
+      if (attendanceChanges.size > 0) {
+        attendanceChanges.forEach((status, employeeId) => {
+          const compositeId = `${employeeId}_${dateStr}`;
+          const docRef = doc(firestore, 'asistencias', compositeId);
+
+          const payload = {
+            employeeId,
+            status,
+            timestamp: attendanceTimestamp,
+            updatedAt: Timestamp.now(),
+          };
+
+          currentBatch.set(docRef, payload, { merge: true });
+          operationCount++;
+
+          // Create new batch if we hit the limit
+          if (operationCount >= MAX_BATCH_SIZE) {
+            batches.push(currentBatch);
+            currentBatch = writeBatch(firestore);
+            operationCount = 0;
+          }
+        });
+      }
+
+      // Handle Justification Changes
+      justificationChanges.forEach((justification) => {
+        const docRef = doc(collection(firestore, 'justificaciones'));
+        currentBatch.set(docRef, { ...justification, createdAt: serverTimestamp() });
+        operationCount++;
+
+        if (operationCount >= MAX_BATCH_SIZE) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(firestore);
+          operationCount = 0;
+        }
+      });
+
+      // Add the last batch if it has operations
+      if (operationCount > 0) {
+        batches.push(currentBatch);
+      }
+
+      // Commit all batches sequentially
+      for (let i = 0; i < batches.length; i++) {
+        await batches[i].commit();
+      }
+
       setInitialAttendances(new Map(attendances));
       setInitialJustifications(new Map(justifications));
       toast({
-        title: 'Cambios guardados',
-        description: `Se guardaron ${attendanceChanges.size} registros de asistencia y ${justificationChanges.size} justificaciones.`,
+        title: '✓ Cambios guardados exitosamente',
+        description: `Se guardaron ${attendanceChanges.size} registros de asistencia${justificationChanges.size > 0 ? ` y ${justificationChanges.size} justificaciones` : ''}.`,
       });
     } catch (error) {
       console.error('Error writing batch: ', error);

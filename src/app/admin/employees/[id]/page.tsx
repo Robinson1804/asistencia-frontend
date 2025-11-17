@@ -1,6 +1,6 @@
 
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,6 +35,27 @@ const employeeSchema = z.object({
 });
 
 type EmployeeFormData = z.infer<typeof employeeSchema>;
+
+// Relación entre IDs de coordinadores y IDs de divisiones
+const coordinadorToDivisionMap: Record<string, string> = {
+  // BERTHA ARCONDO -> INGENIERÍA DE DATOS
+  'QJ6a6pYqNBWpGrfJ5pZq': 'YdY8w8b8v8x8y8z8A8B8',
+  // ARLETT AGUERO -> PROCESOS Y CALIDAD
+  'f51c750b-8e8d-4f18-b29b-248386345d31': 'WdC8E8F8G8H8I8J8K8L8',
+  // EDUARDO CORILLA -> ADMINISTRACIÓN DE PROYECTOS
+  '456': 'UdS8A8B8C8D8E8F8G8H8',
+  // FLOR HUAYHUA -> SEGURIDAD IA Y SDMX
+  '789': 'Zd08F8G8H8I8J8K8L8M8',
+  // KARINA SARAVIA -> MONITOREO DE ENCUESTAS
+  'abc': 'VdT8B8C8D8E8F8G8H8I8',
+  // YIMMY ROJAS -> GEOMÁTICA
+  'def': 'XdX8C8D8E8F8G8H8I8J8',
+  // MICHAEL MALAGA -> INFRAESTRUCTURA
+  'ghi': 'XcY8D8E8F8G8H8I8J8K8',
+  // NOTA: EDUARDO CORILLA también está en SISTEMAS ADMINISTRATIVOS, esta lógica
+  // solo puede manejar una relación 1 a 1 desde coordinador a división.
+  // Si se necesita una lógica más compleja, se debe revisar.
+};
 
 export default function EmployeeFormPage() {
   const router = useRouter();
@@ -78,7 +99,7 @@ export default function EmployeeFormPage() {
   );
 
 
-  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<EmployeeFormData>({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
       apellidosNombres: '',
@@ -97,6 +118,21 @@ export default function EmployeeFormPage() {
       scrumMasterId: '',
     }
   });
+
+  const coordinadorId = watch('coordinadorId');
+
+  useEffect(() => {
+    if (coordinadorId && coordinadorToDivisionMap[coordinadorId]) {
+      const divisionId = coordinadorToDivisionMap[coordinadorId];
+      // Verifica si la división existe en los datos cargados
+      if (divisionesData?.some(d => d.id === divisionId)) {
+        setValue('divisionId', divisionId, { shouldValidate: true });
+      }
+    } else if (!coordinadorId) {
+      setValue('divisionId', '', { shouldValidate: true });
+    }
+  }, [coordinadorId, setValue, divisionesData]);
+
 
   useEffect(() => {
     if (employeeData) {
@@ -337,6 +373,7 @@ export default function EmployeeFormPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar coordinador..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="">Sin Coordinador</SelectItem>
                                 {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -350,7 +387,7 @@ export default function EmployeeFormPage() {
                     name="divisionId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled>
                             <SelectTrigger><SelectValue placeholder="Seleccionar división..." /></SelectTrigger>
                             <SelectContent>
                                 {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
@@ -397,3 +434,4 @@ export default function EmployeeFormPage() {
   );
 }
 
+    
