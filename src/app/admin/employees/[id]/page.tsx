@@ -106,12 +106,17 @@ export default function EmployeeFormPage() {
 
   useEffect(() => {
     if (scrumMasterId && relacionesData) {
+      if (scrumMasterId === 'none') {
+        setValue('coordinadorId', undefined);
+        setValue('divisionId', undefined);
+        return;
+      }
       const relacion = relacionesData.find(r => r.scrumMasterId === scrumMasterId);
       if (relacion) {
         setValue('coordinadorId', relacion.coordinadorId, { shouldValidate: true });
         setValue('divisionId', relacion.divisionId, { shouldValidate: true });
       }
-    } else if (!scrumMasterId) { // Only clear if scrumMasterId is cleared
+    } else if (!scrumMasterId) {
         setValue('coordinadorId', undefined);
         setValue('divisionId', undefined);
     }
@@ -176,7 +181,7 @@ export default function EmployeeFormPage() {
       dttId: data.dttId || null,
       coordinadorId: data.coordinadorId || null,
       divisionId: data.divisionId || null,
-      scrumMasterId: data.scrumMasterId || null,
+      scrumMasterId: data.scrumMasterId === 'none' ? null : data.scrumMasterId,
       updatedAt: new Date(),
       ...(isNew && { createdAt: new Date() })
     };
@@ -274,7 +279,7 @@ export default function EmployeeFormPage() {
                     name="dttId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar DTT..." /></SelectTrigger>
                             <SelectContent>
                                 {(dttsData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDTT}</SelectItem>)}
@@ -290,7 +295,7 @@ export default function EmployeeFormPage() {
                     name="proyectoId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
                             <SelectContent>
                                 {(projectsData || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombreProyecto}</SelectItem>)}
@@ -306,7 +311,7 @@ export default function EmployeeFormPage() {
                     name="sedeId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
                             <SelectContent>
                                 {(sedesData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
@@ -322,7 +327,7 @@ export default function EmployeeFormPage() {
                     name="modalidadId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar modalidad..." /></SelectTrigger>
                             <SelectContent>
                                 {(modalidadesData || []).map(m => <SelectItem key={m.id} value={m.id}>{m.nombreModalidad}</SelectItem>)}
@@ -338,7 +343,7 @@ export default function EmployeeFormPage() {
                     name="tipoContratoId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
                             <SelectContent>
                                 {(tiposContratoData || []).map(t => <SelectItem key={t.id} value={t.id}>{t.tipoContrato}</SelectItem>)}
@@ -354,10 +359,10 @@ export default function EmployeeFormPage() {
                     name="scrumMasterId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Sin Scrum Master</SelectItem>
+                                <SelectItem value="none">Sin Scrum Master</SelectItem>
                                 {(scrumMastersData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -371,7 +376,7 @@ export default function EmployeeFormPage() {
                     name="coordinadorId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''} disabled>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
@@ -387,7 +392,7 @@ export default function EmployeeFormPage() {
                     name="divisionId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''} disabled>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
@@ -417,5 +422,3 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
-
-    
