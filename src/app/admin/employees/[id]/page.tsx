@@ -111,8 +111,7 @@ export default function EmployeeFormPage() {
         setValue('coordinadorId', relacion.coordinadorId, { shouldValidate: true });
         setValue('divisionId', relacion.divisionId, { shouldValidate: true });
       }
-    } else {
-        // If scrum master is deselected, clear the other fields
+    } else if (!scrumMasterId) { // Only clear if scrumMasterId is cleared, not just on initial load
         setValue('coordinadorId', undefined);
         setValue('divisionId', undefined);
     }
@@ -124,7 +123,7 @@ export default function EmployeeFormPage() {
       reset({
         apellidosNombres: employeeData.apellidosNombres,
         dni: employeeData.dni,
-        orden: employeeData.orden,
+        orden: employeeData.orden || '',
         email: employeeData.email || '',
         telefono: employeeData.telefono || '',
         activo: employeeData.activo,

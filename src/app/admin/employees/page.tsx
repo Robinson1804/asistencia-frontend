@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import type { Employee } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +14,7 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,9 @@ import { deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
+type SortableColumns = 'apellidosNombres' | 'dni' | 'proyecto' | 'sede' | 'scrumMaster';
+type SortDirection = 'asc' | 'desc';
+
 export default function EmployeesPage() {
   const router = useRouter();
   const firestore = useFirestore();
@@ -37,26 +40,72 @@ export default function EmployeesPage() {
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [nameFilter, setNameFilter] = useState('');
   const [dniFilter, setDniFilter] = useState('');
-
+  const [sortColumn, setSortColumn] = useState<SortableColumns>('apellidosNombres');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'empleados'), orderBy('apellidosNombres'));
+    return query(collection(firestore, 'empleados'));
   }, [firestore]);
 
   const { data: employeesData, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
 
-  const filteredEmployees = useMemo(() => {
+  const handleSort = (column: SortableColumns) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredAndSortedEmployees = useMemo(() => {
     if (!employeesData) return [];
-    return employeesData
+    
+    const filtered = employeesData
       .map(emp => ({...emp, id: emp.dni}))
       .filter(employee => {
         const nameMatch = employee.apellidosNombres.toLowerCase().includes(nameFilter.toLowerCase());
         const dniMatch = employee.dni.includes(dniFilter);
         return nameMatch && dniMatch;
       });
-  }, [employeesData, nameFilter, dniFilter]);
 
+    return filtered.sort((a, b) => {
+        let aValue: string, bValue: string;
+
+        switch(sortColumn) {
+            case 'proyecto':
+                aValue = a.proyecto?.nombre || '';
+                bValue = b.proyecto?.nombre || '';
+                break;
+            case 'sede':
+                aValue = a.sede?.nombre || '';
+                bValue = b.sede?.nombre || '';
+                break;
+            case 'scrumMaster':
+                aValue = a.scrumMaster?.nombre || '';
+                bValue = b.scrumMaster?.nombre || '';
+                break;
+            default: // apellidosNombres, dni
+                aValue = a[sortColumn] || '';
+                bValue = b[sortColumn] || '';
+        }
+
+        if (aValue.toLowerCase() < bValue.toLowerCase()) {
+            return sortDirection === 'asc' ? -1 : 1;
+        }
+        if (aValue.toLowerCase() > bValue.toLowerCase()) {
+            return sortDirection === 'asc' ? 1 : -1;
+        }
+        return 0;
+    });
+
+  }, [employeesData, nameFilter, dniFilter, sortColumn, sortDirection]);
+
+  const renderSortIcon = (column: SortableColumns) => {
+    if (sortColumn !== column) return null;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
+  };
 
   const handleDeleteEmployee = async () => {
     if (!firestore || !employeeToDelete) return;
@@ -109,31 +158,58 @@ export default function EmployeesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Apellidos y Nombres</TableHead>
-              <TableHead>DNI</TableHead>
-              <TableHead>Proyecto</TableHead>
-              <TableHead>Sede</TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('apellidosNombres')} className="px-0">
+                    Apellidos y Nombres
+                    {renderSortIcon('apellidosNombres')}
+                 </Button>
+              </TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('dni')} className="px-0">
+                    DNI
+                    {renderSortIcon('dni')}
+                 </Button>
+              </TableHead>
+               <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('scrumMaster')} className="px-0">
+                    Scrum Master
+                    {renderSortIcon('scrumMaster')}
+                 </Button>
+              </TableHead>
+              <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('proyecto')} className="px-0">
+                    Proyecto
+                    {renderSortIcon('proyecto')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('sede')} className="px-0">
+                    Sede
+                    {renderSortIcon('sede')}
+                 </Button>
+              </TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loadingEmployees ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={6} className="text-center">
                   Cargando empleados...
                 </TableCell>
               </TableRow>
-            ) : filteredEmployees.length === 0 ? (
+            ) : filteredAndSortedEmployees.length === 0 ? (
                  <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={6} className="text-center">
                   No se encontraron empleados con los filtros actuales.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEmployees.map((employee) => (
+              filteredAndSortedEmployees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium">{employee.apellidosNombres}</TableCell>
                   <TableCell>{employee.dni}</TableCell>
+                  <TableCell>{employee.scrumMaster?.nombre || 'N/A'}</TableCell>
                   <TableCell>{employee.proyecto?.nombre || 'N/A'}</TableCell>
                   <TableCell>{employee.sede?.nombre || 'N/A'}</TableCell>
                   <TableCell className="text-right">
@@ -178,5 +254,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-    
