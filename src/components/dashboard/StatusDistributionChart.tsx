@@ -4,20 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ChartProps {
   data: { name: string; value: number; fill: string; }[];
+  title: string;
 }
 
-export function StatusDistributionChart({ data }: ChartProps) {
+export function StatusDistributionChart({ data, title }: ChartProps) {
     const total = data.reduce((acc, item) => acc + item.value, 0);
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Distribución de Estados (Día de Inicio)</CardTitle>
+        <CardTitle className="text-base font-semibold">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Tooltip
                 contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                formatter={(value: number) => `${value}`}
             />
             <Pie
               data={data}

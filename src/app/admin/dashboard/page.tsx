@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import type { Employee, AttendanceRecord, Division, Coordinador, ScrumMaster } from '@/types';
-import { startOfDay, endOfDay, addMonths } from 'date-fns';
+import { startOfDay, endOfDay, eachDayOfInterval, getDay } from 'date-fns';
 
 import { Filters } from '@/components/dashboard/Filters';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -91,8 +91,10 @@ export default function DashboardPage() {
   // This transformation creates a matrix: { employeeId: { 'YYYY-MM-DD': status, ... }, ... }
   const attendanceMatrix = useMemo(() => {
     const matrix: Record<string, Record<string, string>> = {};
+    const filteredEmployeeIds = new Set(filteredEmployees.map(e => e.dni));
+
     attendanceData.forEach(att => {
-        if (!att.employeeId || !att.timestamp) return;
+        if (!att.employeeId || !att.timestamp || !filteredEmployeeIds.has(att.employeeId)) return;
         const dateStr = att.timestamp.toDate().toISOString().split('T')[0];
         if (!matrix[att.employeeId]) {
             matrix[att.employeeId] = {};
@@ -100,52 +102,99 @@ export default function DashboardPage() {
         matrix[att.employeeId][dateStr] = att.status;
     });
     return matrix;
-  }, [attendanceData]);
-
-  // For summary cards, we use only the first day of the range
-  const singleDayAttendance = useMemo(() => {
-    if (!filters.dateRange?.from) return [];
-    const startOfRangeStr = filters.dateRange.from.toISOString().split('T')[0];
-    return filteredEmployees.map(employee => {
-      const status = attendanceMatrix[employee.dni]?.[startOfRangeStr] || 'No Registrado';
-      return {
-        ...employee,
-        status: status,
-      };
-    });
-  }, [filteredEmployees, attendanceMatrix, filters.dateRange.from]);
-
+  }, [attendanceData, filteredEmployees]);
 
   const stats = useMemo(() => {
-    const total = singleDayAttendance.length;
-    const presentes = singleDayAttendance.filter(e => e.status === 'Presente').length;
-    const tardanzas = singleDayAttendance.filter(e => e.status === 'Tardanza').length;
-    const faltas = singleDayAttendance.filter(e => e.status === 'Falta').length;
-    const noRegistrados = total - presentes - tardanzas - faltas;
+    const { from, to } = filters.dateRange;
+    if (!from || !to || filteredEmployees.length === 0) {
+      return { total: filteredEmployees.length, presentes: 0, tardanzas: 0, faltas: 0, noRegistrados: 0 };
+    }
 
+    const workingDays = eachDayOfInterval({ start: from, end: to }).filter(day => {
+        const dayOfWeek = getDay(day);
+        return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+    });
+    
+    if (workingDays.length === 0) {
+      return { total: filteredEmployees.length, presentes: 0, tardanzas: 0, faltas: 0, noRegistrados: 0 };
+    }
+
+    let totalPresentes = 0;
+    let totalTardanzas = 0;
+    let totalFaltas = 0;
+    let totalNoRegistrados = 0;
+
+    workingDays.forEach(day => {
+        const dateStr = day.toISOString().split('T')[0];
+        filteredEmployees.forEach(employee => {
+            const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+            switch (status) {
+                case 'Presente':
+                    totalPresentes++;
+                    break;
+                case 'Tardanza':
+                    totalTardanzas++;
+                    break;
+                case 'Falta':
+                    totalFaltas++;
+                    break;
+                case 'No Registrado':
+                    totalNoRegistrados++;
+                    break;
+            }
+        });
+    });
+
+    const numDays = workingDays.length;
     return {
-      total,
-      presentes,
-      tardanzas,
-      faltas,
-      noRegistrados,
+        total: filteredEmployees.length,
+        presentes: Math.round(totalPresentes / numDays),
+        tardanzas: Math.round(totalTardanzas / numDays),
+        faltas: Math.round(totalFaltas / numDays),
+        noRegistrados: Math.round(totalNoRegistrados / numDays),
     };
-  }, [singleDayAttendance]);
+
+  }, [filteredEmployees, attendanceMatrix, filters.dateRange]);
   
   const attendanceByDivision = useMemo(() => {
     const result: { name: string, presentes: number, faltas: number }[] = [];
-    divisionsData?.forEach(division => {
-      const employeesInDivision = singleDayAttendance.filter(e => e.divisionId === division.id);
+    const { from, to } = filters.dateRange;
+    if (!from || !to || !divisionsData) return [];
+
+    const workingDays = eachDayOfInterval({ start: from, end: to }).filter(day => {
+        const dayOfWeek = getDay(day);
+        return dayOfWeek !== 0 && dayOfWeek !== 6;
+    });
+
+    if (workingDays.length === 0) return [];
+
+    divisionsData.forEach(division => {
+      const employeesInDivision = filteredEmployees.filter(e => e.divisionId === division.id);
       if (employeesInDivision.length > 0) {
+        let totalPresentes = 0;
+        let totalFaltas = 0;
+
+        workingDays.forEach(day => {
+            const dateStr = day.toISOString().split('T')[0];
+            employeesInDivision.forEach(employee => {
+                const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+                if (status === 'Presente' || status === 'Tardanza') {
+                    totalPresentes++;
+                } else if (status === 'Falta') {
+                    totalFaltas++;
+                }
+            });
+        });
+        
         result.push({
           name: division.nombreDivision,
-          presentes: employeesInDivision.filter(e => e.status === 'Presente' || e.status === 'Tardanza').length,
-          faltas: employeesInDivision.filter(e => e.status === 'Falta').length,
+          presentes: Math.round(totalPresentes / workingDays.length),
+          faltas: Math.round(totalFaltas / workingDays.length),
         });
       }
     });
     return result;
-  }, [singleDayAttendance, divisionsData]);
+  }, [filteredEmployees, divisionsData, attendanceMatrix, filters.dateRange]);
 
   const statusDistribution = useMemo(() => {
     return [
@@ -178,19 +227,19 @@ export default function DashboardPage() {
         <div className="space-y-8 mt-8">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <StatCard title="Total Empleados" value={stats.total} icon={Users} />
-                <StatCard title="Presentes" value={stats.presentes} icon={UserCheck} color="text-[hsl(var(--color-presente))]" />
-                <StatCard title="Tardanzas" value={stats.tardanzas} icon={Clock} color="text-[hsl(var(--color-tardanza))]" />
-                <StatCard title="Faltas" value={stats.faltas} icon={UserX} color="text-[hsl(var(--color-falta))]" />
-                <StatCard title="No Registrados" value={stats.noRegistrados} icon={HelpCircle} color="text-muted-foreground" />
+                <StatCard title="Prom. Presentes" value={stats.presentes} icon={UserCheck} color="text-[hsl(var(--color-presente))]" />
+                <StatCard title="Prom. Tardanzas" value={stats.tardanzas} icon={Clock} color="text-[hsl(var(--color-tardanza))]" />
+                <StatCard title="Prom. Faltas" value={stats.faltas} icon={UserX} color="text-[hsl(var(--color-falta))]" />
+                <StatCard title="Prom. No Registrados" value={stats.noRegistrados} icon={HelpCircle} color="text-muted-foreground" />
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <AttendanceByDivisionChart data={attendanceByDivision} dataKey="faltas" title="Ausencias por División (Día de Inicio)" color="hsl(var(--color-falta))" />
-                    <AttendanceByDivisionChart data={attendanceByDivision} dataKey="presentes" title="Asistencia por División (Día de Inicio)" color="hsl(var(--color-presente))" />
+                    <AttendanceByDivisionChart data={attendanceByDivision} dataKey="faltas" title="Prom. Ausencias por División" color="hsl(var(--color-falta))" />
+                    <AttendanceByDivisionChart data={attendanceByDivision} dataKey="presentes" title="Prom. Asistencia por División" color="hsl(var(--color-presente))" />
                 </div>
                  <div className="w-full">
-                   <StatusDistributionChart data={statusDistribution} />
+                   <StatusDistributionChart data={statusDistribution} title="Distribución Promedio de Estados" />
                  </div>
             </div>
             

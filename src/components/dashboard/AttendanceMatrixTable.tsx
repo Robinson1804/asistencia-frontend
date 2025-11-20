@@ -4,7 +4,7 @@ import type { Employee } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { eachDayOfInterval, format } from 'date-fns';
+import { eachDayOfInterval, format, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,6 +22,9 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange }
     return eachDayOfInterval({
       start: dateRange.from,
       end: dateRange.to
+    }).filter(day => {
+        const dayOfWeek = getDay(day);
+        return dayOfWeek !== 0 && dayOfWeek !== 6; // 0 = Sunday, 6 = Saturday
     });
   }, [dateRange]);
 
@@ -46,7 +49,7 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Matriz de Asistencia</CardTitle>
+        <CardTitle>Matriz de Asistencia (Lunes a Viernes)</CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="w-full whitespace-nowrap rounded-md border">
