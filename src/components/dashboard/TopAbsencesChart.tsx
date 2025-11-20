@@ -45,7 +45,7 @@ export function TopAbsencesChart({ data, title }: ChartProps) {
               labelFormatter={(label) => <span className="font-bold">{label}</span>}
               formatter={(value) => [`${value} ausencias`, 'Total']}
             />
-            <Bar dataKey="ausencias" fill="hsl(var(--color-falta))" radius={[0, 4, 4, 0]}>
+            <Bar dataKey="ausencias" fill="hsl(var(--color-ausencia))" radius={[0, 4, 4, 0]}>
                 <LabelList dataKey="ausencias" position="right" fill='hsl(var(--foreground))' fontSize={12} />
             </Bar>
           </BarChart>

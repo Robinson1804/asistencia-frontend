@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | null>(null);
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'No Registrado' | null>(null);
 
   // Fetch all reference data
   const { data: employeesData } = useCollection<Employee>(
@@ -128,6 +128,16 @@ export default function DashboardPage() {
           employeeIdsWithStatus.add(att.employeeId);
         }
       });
+      
+      // Special case for 'No Registrado'
+      if (statusFilter === 'No Registrado') {
+          const registeredEmployeeIds = new Set(attendanceData.map(att => att.employeeId));
+          employees.forEach(emp => {
+              if (!registeredEmployeeIds.has(emp.dni)) {
+                  employeeIdsWithStatus.add(emp.dni);
+              }
+          })
+      }
 
       employees = employees.filter(emp => employeeIdsWithStatus.has(emp.dni));
     }
@@ -243,9 +253,9 @@ export default function DashboardPage() {
 
   const statusDistribution = useMemo(() => {
     return [
-      { name: 'Ingreso', value: stats.ingresos, fill: 'hsl(var(--color-presente))' },
-      { name: 'Ingreso Tarde', value: stats.ingresosTarde, fill: 'hsl(var(--color-tardanza))' },
-      { name: 'Ausencia', value: stats.ausencias, fill: 'hsl(var(--color-falta))' },
+      { name: 'Ingreso', value: stats.ingresos, fill: 'hsl(var(--color-ingreso))' },
+      { name: 'Ingreso Tarde', value: stats.ingresosTarde, fill: 'hsl(var(--color-ingreso-tarde))' },
+      { name: 'Ausencia', value: stats.ausencias, fill: 'hsl(var(--color-ausencia))' },
       { name: 'No Registrado', value: stats.noRegistrados, fill: 'hsl(var(--muted))' }
     ].filter(item => item.name !== 'No Registrado'); // Exclude 'No Registrado'
   }, [stats]);
@@ -271,7 +281,7 @@ export default function DashboardPage() {
         .slice(0, 10);
   }, [filteredEmployees, attendanceMatrix, workingDays]);
 
-  const handleStatusFilter = (status: AttendanceStatus | null) => {
+  const handleStatusFilter = (status: AttendanceStatus | 'No Registrado' | null) => {
     setStatusFilter(prev => prev === status ? null : status);
   }
 
@@ -308,7 +318,7 @@ export default function DashboardPage() {
                   title="Prom. Ingresos" 
                   value={stats.ingresos} 
                   icon={UserCheck} 
-                  color="text-[hsl(var(--color-presente))]" 
+                  color="text-[hsl(var(--color-ingreso))]" 
                   onClick={() => handleStatusFilter('Ingreso')}
                   isActive={statusFilter === 'Ingreso'}
                 />
@@ -316,7 +326,7 @@ export default function DashboardPage() {
                   title="Prom. Ingresos Tarde" 
                   value={stats.ingresosTarde} 
                   icon={Clock} 
-                  color="text-[hsl(var(--color-tardanza))]"
+                  color="text-[hsl(var(--color-ingreso-tarde))]"
                   onClick={() => handleStatusFilter('Ingreso Tarde')}
                   isActive={statusFilter === 'Ingreso Tarde'}
                 />
@@ -324,7 +334,7 @@ export default function DashboardPage() {
                   title="Prom. Ausencias" 
                   value={stats.ausencias} 
                   icon={UserX} 
-                  color="text-[hsl(var(--color-falta))]"
+                  color="text-[hsl(var(--color-ausencia))]"
                   onClick={() => handleStatusFilter('Ausencia')}
                   isActive={statusFilter === 'Ausencia'}
                 />
@@ -341,8 +351,8 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <StatusDistributionChart data={statusDistribution} title="Distribución Promedio de Estados" />
                 <TopAbsencesChart data={topAbsences} title="Top 10 Empleados con más Ausencias" />
-                <AttendanceByDivisionChart data={sortedAttendanceByDivisionAusencias} dataKey="ausencias" title="Prom. % Ausencias por División" color="hsl(var(--color-falta))" />
-                <AttendanceByDivisionChart data={sortedAttendanceByDivisionIngresos} dataKey="ingresos" title="Prom. % Registros por División" color="hsl(var(--color-presente))" />
+                <AttendanceByDivisionChart data={sortedAttendanceByDivisionAusencias} dataKey="ausencias" title="Prom. % Ausencias por División" color="hsl(var(--color-ausencia))" />
+                <AttendanceByDivisionChart data={sortedAttendanceByDivisionIngresos} dataKey="ingresos" title="Prom. % Ingresos por División" color="hsl(var(--color-ingreso))" />
             </div>
             
             <AttendanceMatrixTable
