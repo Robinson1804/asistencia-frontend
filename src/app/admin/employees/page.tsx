@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import type { Employee, Proyecto, Sede, ScrumMaster } from '@/types';
+import type { Employee, Proyecto, Sede, ScrumMaster, TipoContrato } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -48,6 +48,7 @@ export default function EmployeesPage() {
   const [proyectoFilter, setProyectoFilter] = useState(searchParams.get('proyecto') || 'todos');
   const [sedeFilter, setSedeFilter] = useState(searchParams.get('sede') || 'todos');
   const [scrumMasterFilter, setScrumMasterFilter] = useState(searchParams.get('scrumMaster') || 'todos');
+  const [tipoContratoFilter, setTipoContratoFilter] = useState(searchParams.get('tipoContrato') || 'todos');
   const [sortColumn, setSortColumn] = useState<SortableColumns>((searchParams.get('sortBy') as SortableColumns) || 'apellidosNombres');
   const [sortDirection, setSortDirection] = useState<SortDirection>((searchParams.get('sortDir') as SortDirection) || 'asc');
 
@@ -59,12 +60,13 @@ export default function EmployeesPage() {
     if (proyectoFilter !== 'todos') params.set('proyecto', proyectoFilter);
     if (sedeFilter !== 'todos') params.set('sede', sedeFilter);
     if (scrumMasterFilter !== 'todos') params.set('scrumMaster', scrumMasterFilter);
+    if (tipoContratoFilter !== 'todos') params.set('tipoContrato', tipoContratoFilter);
     params.set('sortBy', sortColumn);
     params.set('sortDir', sortDirection);
 
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState({}, '', newUrl);
-  }, [nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, sortColumn, sortDirection]);
+    // Use replaceState to avoid adding to history stack
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  }, [nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, tipoContratoFilter, sortColumn, sortDirection]);
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -85,11 +87,17 @@ export default function EmployeesPage() {
     if (!firestore) return null;
     return collection(firestore, 'scrumMasters');
   }, [firestore]);
+  
+  const tiposContratoQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'tiposContrato');
+  }, [firestore]);
 
   const { data: employeesData, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
   const { data: projectsData } = useCollection<Proyecto>(projectsQuery);
   const { data: sedesData } = useCollection<Sede>(sedesQuery);
   const { data: scrumMastersData } = useCollection<ScrumMaster>(scrumMastersQuery);
+  const { data: tiposContratoData } = useCollection<TipoContrato>(tiposContratoQuery);
 
   const handleSort = (column: SortableColumns) => {
     if (sortColumn === column) {
@@ -111,7 +119,8 @@ export default function EmployeesPage() {
         const proyectoMatch = proyectoFilter === 'todos' || employee.proyectoId === proyectoFilter;
         const sedeMatch = sedeFilter === 'todos' || employee.sedeId === sedeFilter;
         const scrumMasterMatch = scrumMasterFilter === 'todos' || employee.scrumMasterId === scrumMasterFilter;
-        return nameMatch && dniMatch && proyectoMatch && sedeMatch && scrumMasterMatch;
+        const tipoContratoMatch = tipoContratoFilter === 'todos' || employee.tipoContratoId === tipoContratoFilter;
+        return nameMatch && dniMatch && proyectoMatch && sedeMatch && scrumMasterMatch && tipoContratoMatch;
       });
 
     return filtered.sort((a, b) => {
@@ -144,7 +153,7 @@ export default function EmployeesPage() {
         return 0;
     });
 
-  }, [employeesData, nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, sortColumn, sortDirection]);
+  }, [employeesData, nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, tipoContratoFilter, sortColumn, sortDirection]);
 
   const renderSortIcon = (column: SortableColumns) => {
     if (sortColumn !== column) return null;
@@ -183,28 +192,34 @@ export default function EmployeesPage() {
         </Button>
       </div>
 
-       <div className="mb-6 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <Input
-            placeholder="Filtrar por apellidos y nombres..."
-            value={nameFilter}
-            onChange={(e) => setNameFilter(e.target.value)}
-            className="max-w-sm"
-          />
-          <Input
-            placeholder="Filtrar por DNI..."
-            value={dniFilter}
-            onChange={(e) => setDniFilter(e.target.value)}
-            className="max-w-sm"
-          />
+       <div className="mb-6 p-4 border rounded-lg bg-card space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="name-filter">Buscar por Apellidos y Nombres</Label>
+            <Input
+              id="name-filter"
+              placeholder="Ej: Juan Pérez..."
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dni-filter">Buscar por DNI</Label>
+            <Input
+              id="dni-filter"
+              placeholder="Ej: 12345678..."
+              value={dniFilter}
+              onChange={(e) => setDniFilter(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-          <div className="space-y-2 w-full md:w-auto">
-            <Label htmlFor="proyecto-filter" className="text-sm font-medium">Proyecto</Label>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+          <div className="space-y-2">
+            <Label htmlFor="proyecto-filter">Proyecto</Label>
             <Select value={proyectoFilter} onValueChange={setProyectoFilter}>
-              <SelectTrigger className="w-full md:w-[240px]" id="proyecto-filter">
-                <SelectValue placeholder="Todos los proyectos" />
+              <SelectTrigger id="proyecto-filter">
+                <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los proyectos</SelectItem>
@@ -216,12 +231,11 @@ export default function EmployeesPage() {
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2 w-full md:w-auto">
-            <Label htmlFor="sede-filter" className="text-sm font-medium">Sede</Label>
+          <div className="space-y-2">
+            <Label htmlFor="sede-filter">Sede</Label>
             <Select value={sedeFilter} onValueChange={setSedeFilter}>
-              <SelectTrigger className="w-full md:w-[200px]" id="sede-filter">
-                <SelectValue placeholder="Todas las sedes" />
+              <SelectTrigger id="sede-filter">
+                <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todas las sedes</SelectItem>
@@ -231,17 +245,30 @@ export default function EmployeesPage() {
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2 w-full md:w-auto">
-            <Label htmlFor="scrummaster-filter" className="text-sm font-medium">Scrum Master</Label>
+          <div className="space-y-2">
+            <Label htmlFor="scrummaster-filter">Scrum Master</Label>
             <Select value={scrumMasterFilter} onValueChange={setScrumMasterFilter}>
-              <SelectTrigger className="w-full md:w-[200px]" id="scrummaster-filter">
+              <SelectTrigger id="scrummaster-filter">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
                 {(scrumMastersData || []).map(sm => (
                   <SelectItem key={sm.id} value={sm.id}>{sm.nombreScrumMaster}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tipocontrato-filter">Tipo de Contrato</Label>
+            <Select value={tipoContratoFilter} onValueChange={setTipoContratoFilter}>
+              <SelectTrigger id="tipocontrato-filter">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {(tiposContratoData || []).map(tc => (
+                  <SelectItem key={tc.id} value={tc.id}>{tc.tipoContrato}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -349,3 +376,5 @@ export default function EmployeesPage() {
     </div>
   );
 }
+
+    

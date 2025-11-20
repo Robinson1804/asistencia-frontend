@@ -1,6 +1,6 @@
 
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -105,51 +105,27 @@ export default function EmployeeFormPage() {
 
   const scrumMasterId = watch('scrumMasterId');
 
-  // Reset form initialization when employee ID changes
   useEffect(() => {
-    console.log('🔄 Employee ID changed to:', id);
-    setFormInitialized(false);
-  }, [id]);
-
-  // Only auto-fill coordinador and division after form is initialized
-  // to prevent overwriting loaded values during initial form population
-  useEffect(() => {
-    // Skip this effect during initial form load
+    // We only want this effect to run on user interaction, not on initial load
     if (!formInitialized) return;
 
-    if (scrumMasterId && relacionesData) {
-      if (scrumMasterId === 'none') {
-        setValue('coordinadorId', undefined);
-        setValue('divisionId', undefined);
-        return;
-      }
+    if (scrumMasterId && scrumMasterId !== 'none' && relacionesData) {
       const relacion = relacionesData.find(r => r.scrumMasterId === scrumMasterId);
       if (relacion) {
         setValue('coordinadorId', relacion.coordinadorId, { shouldValidate: true });
         setValue('divisionId', relacion.divisionId, { shouldValidate: true });
       }
-    } else if (!scrumMasterId) {
+    } else {
+        // If no scrum master is selected, clear coordinator and division
         setValue('coordinadorId', undefined);
         setValue('divisionId', undefined);
     }
   }, [scrumMasterId, setValue, relacionesData, formInitialized]);
 
 
-  // Reset form immediately when employee data loads
+  // Effect to populate form with existing employee data
   useEffect(() => {
-    if (employeeData && !formInitialized) {
-      console.log('📝 Employee data loaded:', employeeData);
-      console.log('🔑 IDs encontrados:', {
-        proyectoId: employeeData.proyectoId,
-        sedeId: employeeData.sedeId,
-        modalidadId: employeeData.modalidadId,
-        tipoContratoId: employeeData.tipoContratoId,
-        dttId: employeeData.dttId,
-        coordinadorId: employeeData.coordinadorId,
-        divisionId: employeeData.divisionId,
-        scrumMasterId: employeeData.scrumMasterId,
-      });
-
+    if (employeeData && !isNew) {
       const formData = {
         apellidosNombres: employeeData.apellidosNombres || '',
         dni: employeeData.dni || '',
@@ -166,33 +142,18 @@ export default function EmployeeFormPage() {
         divisionId: employeeData.divisionId || undefined,
         scrumMasterId: employeeData.scrumMasterId || undefined,
       };
-
-      console.log('✅ Reseteando formulario con:', formData);
-
-      // Reset with keepDefaultValues: false to ensure complete reset
-      reset(formData, { keepDefaultValues: false });
-
-      // Also set values individually to ensure they're applied
-      setTimeout(() => {
-        if (employeeData.proyectoId) setValue('proyectoId', employeeData.proyectoId);
-        if (employeeData.sedeId) setValue('sedeId', employeeData.sedeId);
-        if (employeeData.modalidadId) setValue('modalidadId', employeeData.modalidadId);
-        if (employeeData.tipoContratoId) setValue('tipoContratoId', employeeData.tipoContratoId);
-        if (employeeData.dttId) setValue('dttId', employeeData.dttId);
-        if (employeeData.scrumMasterId) setValue('scrumMasterId', employeeData.scrumMasterId);
-        if (employeeData.coordinadorId) setValue('coordinadorId', employeeData.coordinadorId);
-        if (employeeData.divisionId) setValue('divisionId', employeeData.divisionId);
-        console.log('✅ Valores individuales aplicados');
-      }, 100);
-
+      reset(formData);
+      // We must mark the form as initialized AFTER resetting it
+      setFormInitialized(true); 
+    } else if (isNew) {
+      // For a new employee, the form is ready to be filled, so we mark it as initialized.
       setFormInitialized(true);
     }
-  }, [employeeData, formInitialized, reset, setValue]);
+  }, [employeeData, isNew, reset]);
+
 
   const onSubmit = async (data: EmployeeFormData) => {
     if (!firestore) return;
-
-    console.log('💾 Guardando empleado con datos:', data);
 
     const project = projectsData?.find(p => p.id === data.proyectoId);
     const sede = sedesData?.find(s => s.id === data.sedeId);
@@ -202,17 +163,6 @@ export default function EmployeeFormPage() {
     const coordinador = coordinadoresData?.find(c => c.id === data.coordinadorId);
     const division = divisionesData?.find(d => d.id === data.divisionId);
     const scrumMaster = scrumMastersData?.find(s => s.id === data.scrumMasterId);
-
-    console.log('🔍 Datos encontrados:', {
-      project,
-      sede,
-      modalidad,
-      tipoContrato,
-      dtt,
-      coordinador,
-      division,
-      scrumMaster
-    });
 
     const employeePayload = {
       apellidosNombres: data.apellidosNombres,
@@ -243,27 +193,20 @@ export default function EmployeeFormPage() {
       ...(isNew && { createdAt: new Date() })
     };
 
-    console.log('📦 Payload a guardar:', employeePayload);
-
     try {
       const docRef = doc(firestore, 'empleados', data.dni);
-      console.log('🚀 Guardando en Firestore...');
       await setDoc(docRef, employeePayload, { merge: true });
-      console.log('✅ Guardado exitoso!');
       toast({
         title: `Empleado ${isNew ? 'creado' : 'actualizado'}`,
         description: `${data.apellidosNombres} ha sido guardado exitosamente.`,
       });
-      // Use router.back() to preserve filters instead of router.push()
       if (isNew) {
         router.push('/admin/employees');
       } else {
         router.back();
       }
     } catch (error: any) {
-      console.error("❌ Error completo:", error);
-      console.error("Código de error:", error?.code);
-      console.error("Mensaje:", error?.message);
+      console.error("Error saving employee:", error);
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
@@ -272,7 +215,9 @@ export default function EmployeeFormPage() {
     }
   };
 
-  if (loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts || loadingCoordinadores || loadingDivisiones || loadingScrumMasters || loadingRelaciones) {
+  const isLoadingData = loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts || loadingCoordinadores || loadingDivisiones || loadingScrumMasters || loadingRelaciones;
+
+  if (isLoadingData) {
     return <div className="flex min-h-screen items-center justify-center"><p>Cargando datos...</p></div>;
   }
   
@@ -291,7 +236,7 @@ export default function EmployeeFormPage() {
          <CardHeader>
           <CardTitle>{isNew ? 'Añadir Nuevo Empleado' : 'Editar Empleado'}</CardTitle>
         </CardHeader>
-        <form key={`employee-form-${id}`} onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="apellidosNombres">Apellidos y Nombres</Label>
@@ -347,9 +292,10 @@ export default function EmployeeFormPage() {
                     name="dttId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar DTT..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="none">Sin DTT</SelectItem>
                                 {(dttsData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDTT}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -363,9 +309,10 @@ export default function EmployeeFormPage() {
                     name="proyectoId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="none">Sin Proyecto</SelectItem>
                                 {(projectsData || []).map(p => <SelectItem key={p.id} value={p.id}>{p.codigoProyecto} - {p.nombreProyecto}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -379,9 +326,10 @@ export default function EmployeeFormPage() {
                     name="sedeId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="none">Sin Sede</SelectItem>
                                 {(sedesData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -395,9 +343,10 @@ export default function EmployeeFormPage() {
                     name="modalidadId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar modalidad..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="none">Sin Modalidad</SelectItem>
                                 {(modalidadesData || []).map(m => <SelectItem key={m.id} value={m.id}>{m.nombreModalidad}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -411,9 +360,10 @@ export default function EmployeeFormPage() {
                     name="tipoContratoId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="none">Sin Tipo de Contrato</SelectItem>
                                 {(tiposContratoData || []).map(t => <SelectItem key={t.id} value={t.id}>{t.tipoContrato}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -427,7 +377,7 @@ export default function EmployeeFormPage() {
                     name="scrumMasterId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">Sin Scrum Master</SelectItem>
@@ -444,7 +394,7 @@ export default function EmployeeFormPage() {
                     name="coordinadorId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined} disabled>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
@@ -460,7 +410,7 @@ export default function EmployeeFormPage() {
                     name="divisionId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || undefined} disabled>
+                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
@@ -490,3 +440,5 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
+
+    
