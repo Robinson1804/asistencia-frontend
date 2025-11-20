@@ -176,13 +176,13 @@ export default function DashboardPage() {
         filteredEmployees.forEach(employee => {
             const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
             switch (status) {
-                case 'Ingreso':
+                case 'Presente':
                     totalIngresos++;
                     break;
-                case 'Ingreso Tarde':
+                case 'Tardanza':
                     totalIngresosTarde++;
                     break;
-                case 'Ausencia':
+                case 'Falta':
                     totalAusencias++;
                     break;
                 case 'No Registrado':
@@ -219,9 +219,9 @@ export default function DashboardPage() {
                 const dateStr = day.toISOString().split('T')[0];
                 employeesInDivision.forEach(employee => {
                     const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
-                    if (status === 'Ingreso' || status === 'Ingreso Tarde') {
+                    if (status === 'Presente' || status === 'Tardanza') {
                         divisionStats[division.id].ingresos++;
-                    } else if (status === 'Ausencia') {
+                    } else if (status === 'Falta') {
                         divisionStats[division.id].ausencias++;
                     }
                 });
@@ -268,7 +268,7 @@ export default function DashboardPage() {
         workingDays.forEach(day => {
             const dateStr = day.toISOString().split('T')[0];
             const status = attendanceMatrix[employee.dni]?.[dateStr];
-            if (status === 'Ausencia') {
+            if (status === 'Falta') {
                 faltas++;
             }
         });
@@ -319,24 +319,24 @@ export default function DashboardPage() {
                   value={stats.ingresos} 
                   icon={UserCheck} 
                   color="text-[hsl(var(--color-ingreso))]" 
-                  onClick={() => handleStatusFilter('Ingreso')}
-                  isActive={statusFilter === 'Ingreso'}
+                  onClick={() => handleStatusFilter('Presente')}
+                  isActive={statusFilter === 'Presente'}
                 />
                 <StatCard 
                   title="Prom. Ingresos Tarde" 
                   value={stats.ingresosTarde} 
                   icon={Clock} 
                   color="text-[hsl(var(--color-ingreso-tarde))]"
-                  onClick={() => handleStatusFilter('Ingreso Tarde')}
-                  isActive={statusFilter === 'Ingreso Tarde'}
+                  onClick={() => handleStatusFilter('Tardanza')}
+                  isActive={statusFilter === 'Tardanza'}
                 />
                 <StatCard 
                   title="Prom. Ausencias" 
                   value={stats.ausencias} 
                   icon={UserX} 
                   color="text-[hsl(var(--color-ausencia))]"
-                  onClick={() => handleStatusFilter('Ausencia')}
-                  isActive={statusFilter === 'Ausencia'}
+                  onClick={() => handleStatusFilter('Falta')}
+                  isActive={statusFilter === 'Falta'}
                 />
                 <StatCard 
                   title="Prom. No Registrados" 

@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo } from 'react';
 import type { Employee } from '@/types';
@@ -20,21 +21,29 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange, 
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'Ingreso': return 'default';
-      case 'Ingreso Tarde': return 'secondary';
-      case 'Ausencia': return 'destructive';
+      case 'Presente': return 'default';
+      case 'Tardanza': return 'secondary';
+      case 'Falta': return 'destructive';
       default: return 'outline';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch(status) {
-        case 'Ingreso': return 'bg-green-100 dark:bg-green-900/50';
-        case 'Ingreso Tarde': return 'bg-yellow-100 dark:bg-yellow-900/50';
-        case 'Ausencia': return 'bg-red-100 dark:bg-red-900/50';
+        case 'Presente': return 'bg-green-100 dark:bg-green-900/50';
+        case 'Tardanza': return 'bg-yellow-100 dark:bg-yellow-900/50';
+        case 'Falta': return 'bg-red-100 dark:bg-red-900/50';
         default: return 'bg-gray-100 dark:bg-gray-800/50';
     }
   }
+  
+  const statusDisplay: Record<string, string> = {
+    'Presente': 'Ingreso',
+    'Tardanza': 'Ing. Tarde',
+    'Falta': 'Ausencia',
+    'N/R': 'N/R'
+  };
+
 
   return (
     <Card>
@@ -68,7 +77,7 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange, 
                       return (
                         <TableCell key={dateStr} className={cn("text-center p-2", getStatusColor(status))}>
                           <Badge variant={getStatusVariant(status)} className="w-24 justify-center text-[10px] p-1">
-                            {status}
+                            {statusDisplay[status] || status}
                           </Badge>
                         </TableCell>
                       );
