@@ -155,7 +155,7 @@ export default function AttendancePage() {
     });
 
     if (attendanceChanges.size === 0 && justificationChanges.size === 0) {
-      toast({ title: 'Sin cambios', description: 'No hay nuevas asistencias o justificaciones para guardar.' });
+      toast({ title: 'Sin cambios', description: 'No hay nuevos registros o justificaciones para guardar.' });
       return;
     }
 
@@ -165,10 +165,6 @@ export default function AttendancePage() {
       const attendanceDate = startOfDay(selectedDate);
       const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
       const dateStr = attendanceDate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-      // --- OPTIMIZED: Use composite document IDs instead of queries ---
-      // Document ID format: {employeeId}_{YYYY-MM-DD}
-      // This eliminates the need for queries and 'in' operator limitations
 
       const batches: any[] = [];
       let currentBatch = writeBatch(firestore);
@@ -191,7 +187,6 @@ export default function AttendancePage() {
           currentBatch.set(docRef, payload, { merge: true });
           operationCount++;
 
-          // Create new batch if we hit the limit
           if (operationCount >= MAX_BATCH_SIZE) {
             batches.push(currentBatch);
             currentBatch = writeBatch(firestore);
@@ -213,12 +208,10 @@ export default function AttendancePage() {
         }
       });
 
-      // Add the last batch if it has operations
       if (operationCount > 0) {
         batches.push(currentBatch);
       }
 
-      // Commit all batches sequentially
       for (let i = 0; i < batches.length; i++) {
         await batches[i].commit();
       }
@@ -254,7 +247,7 @@ export default function AttendancePage() {
   return (
     <div className="container mx-auto p-4 md:p-8">
         <div className="mb-8 text-center md:text-left">
-          <h1 className="text-3xl font-bold">Registro de Asistencia</h1>
+          <h1 className="text-3xl font-bold">Registro de Personal</h1>
           {currentDate && <p className="text-lg text-muted-foreground">Registrando para el {currentDate}</p>}
         </div>
 
@@ -294,7 +287,7 @@ export default function AttendancePage() {
               </div>
               <Button onClick={handleSaveAttendances} disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? 'Guardando...' : 'Guardar Asistencias'}
+                {isSaving ? 'Guardando...' : 'Guardar Registros'}
               </Button>
             </div>
           </div>
@@ -325,7 +318,7 @@ export default function AttendancePage() {
                 <UiTableRow>
                   <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
-                  <TableHead className="text-center w-[440px] sm:w-[440px]">Estado de Asistencia</TableHead>
+                  <TableHead className="text-center w-[440px] sm:w-[440px]">Estado del Registro</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
@@ -348,5 +341,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
-    

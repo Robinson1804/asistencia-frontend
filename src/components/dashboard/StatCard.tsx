@@ -7,11 +7,21 @@ interface StatCardProps {
   value: string | number;
   icon: React.ElementType;
   color?: string;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
-export function StatCard({ title, value, icon: Icon, color }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, color, onClick, isActive }: StatCardProps) {
+  const isClickable = !!onClick;
   return (
-    <Card>
+    <Card 
+      onClick={onClick}
+      className={cn(
+        "transition-all",
+        isClickable && "cursor-pointer hover:shadow-lg hover:-translate-y-1",
+        isActive && "ring-2 ring-primary shadow-lg"
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={cn("h-4 w-4 text-muted-foreground", color)} />

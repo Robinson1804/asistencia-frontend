@@ -8,6 +8,18 @@ interface ChartProps {
 }
 
 export function TopAbsencesChart({ data, title }: ChartProps) {
+  if (!data || data.length === 0) {
+     return (
+         <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">{title}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center h-[300px]">
+            <p className="text-muted-foreground">No hay ausencias en el rango seleccionado.</p>
+          </CardContent>
+        </Card>
+      )
+  }
   return (
     <Card>
       <CardHeader>
@@ -31,10 +43,10 @@ export function TopAbsencesChart({ data, title }: ChartProps) {
               cursor={{ fill: 'hsl(var(--muted))' }} 
               contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
               labelFormatter={(label) => <span className="font-bold">{label}</span>}
-              formatter={(value) => [`${value} faltas`, 'Total']}
+              formatter={(value) => [`${value} ausencias`, 'Total']}
             />
-            <Bar dataKey="faltas" fill="hsl(var(--color-falta))" radius={[0, 4, 4, 0]}>
-                <LabelList dataKey="faltas" position="right" fill='hsl(var(--foreground))' fontSize={12} />
+            <Bar dataKey="ausencias" fill="hsl(var(--color-falta))" radius={[0, 4, 4, 0]}>
+                <LabelList dataKey="ausencias" position="right" fill='hsl(var(--foreground))' fontSize={12} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

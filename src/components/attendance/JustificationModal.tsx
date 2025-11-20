@@ -92,7 +92,7 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, ju
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>{isReadOnly ? 'Detalles de la Justificación' : 'Justificar Inasistencia'}</DialogTitle>
+            <DialogTitle>{isReadOnly ? 'Detalles de la Justificación' : 'Justificar Registro'}</DialogTitle>
             <DialogDescription>
               {isReadOnly 
                 ? `Viendo la justificación para ${employee.apellidosNombres} por la ${status.toLowerCase()} del día ${date.toLocaleDateString()}.`

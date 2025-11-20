@@ -202,7 +202,7 @@ export default function Home() {
     });
 
     if (attendanceChanges.size === 0 && justificationChanges.size === 0) {
-      toast({ title: 'Sin cambios', description: 'No hay nuevas asistencias o justificaciones para guardar en esta página.' });
+      toast({ title: 'Sin cambios', description: 'No hay nuevos registros o justificaciones para guardar en esta página.' });
       return;
     }
 
@@ -212,10 +212,6 @@ export default function Home() {
       const attendanceDate = startOfDay(selectedDate);
       const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
       const dateStr = attendanceDate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-      // --- OPTIMIZED: Use composite document IDs instead of queries ---
-      // Document ID format: {employeeId}_{YYYY-MM-DD}
-      // This eliminates the need for queries and 'in' operator limitations
 
       const batches: any[] = [];
       let currentBatch = writeBatch(firestore);
@@ -238,7 +234,6 @@ export default function Home() {
           currentBatch.set(docRef, payload, { merge: true });
           operationCount++;
 
-          // Create new batch if we hit the limit
           if (operationCount >= MAX_BATCH_SIZE) {
             batches.push(currentBatch);
             currentBatch = writeBatch(firestore);
@@ -260,12 +255,10 @@ export default function Home() {
         }
       });
 
-      // Add the last batch if it has operations
       if (operationCount > 0) {
         batches.push(currentBatch);
       }
 
-      // Commit all batches sequentially with progress feedback
       const totalBatches = batches.length;
       for (let i = 0; i < totalBatches; i++) {
         await batches[i].commit();
@@ -279,7 +272,7 @@ export default function Home() {
 
       toast({
         title: '✓ Cambios guardados exitosamente',
-        description: `Se guardaron ${attendanceChanges.size} registros de asistencia${justificationChanges.size > 0 ? ` y ${justificationChanges.size} justificaciones` : ''}.`,
+        description: `Se guardaron ${attendanceChanges.size} registros${justificationChanges.size > 0 ? ` y ${justificationChanges.size} justificaciones` : ''}.`,
       });
     } catch (error) {
       console.error('Error writing batch: ', error);
@@ -433,7 +426,7 @@ export default function Home() {
               </div>
               <Button onClick={handleSaveAttendances} disabled={isSaving} className="min-w-[200px]">
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? (savingProgress > 0 ? `Guardando ${savingProgress}%` : 'Guardando...') : 'Guardar Asistencias'}
+                {isSaving ? (savingProgress > 0 ? `Guardando ${savingProgress}%` : 'Guardando...') : 'Guardar Registros'}
               </Button>
             </div>
           </div>
@@ -487,7 +480,6 @@ export default function Home() {
               );
             })}
 
-            {/* Pagination controls for mobile */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 py-4">
                 <Button
@@ -528,7 +520,7 @@ export default function Home() {
               )}
               <div className="relative z-10 flex items-center justify-center">
                 <Save className="mr-2 h-5 w-5" />
-                {isSaving ? (savingProgress > 0 ? `Guardando ${savingProgress}%` : 'Guardando...') : 'Guardar Asistencias'}
+                {isSaving ? (savingProgress > 0 ? `Guardando ${savingProgress}%` : 'Guardando...') : 'Guardar Registros'}
               </div>
             </Button>
           </div>
@@ -539,7 +531,7 @@ export default function Home() {
                 <UiTableRow>
                   <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
-                  <TableHead className="text-center w-[440px] sm:w-[440px]">Estado de Asistencia</TableHead>
+                  <TableHead className="text-center w-[440px] sm:w-[440px]">Estado del Registro</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
@@ -562,7 +554,6 @@ export default function Home() {
               </TableBody>
             </Table>
 
-            {/* Pagination controls for desktop */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-3 py-4 border-t">
                 <Button
@@ -592,5 +583,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

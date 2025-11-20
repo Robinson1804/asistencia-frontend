@@ -2,11 +2,13 @@
 'use client';
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import type { Division, Coordinador, ScrumMaster, Proyecto, TipoContrato } from "@/types";
 import { DateRange } from "react-day-picker";
+import { Button } from "../ui/button";
+import { X } from "lucide-react";
 
 interface FiltersProps {
   filters: any;
@@ -16,23 +18,33 @@ interface FiltersProps {
   scrumMasters: ScrumMaster[];
   proyectos: Proyecto[];
   tiposContrato: TipoContrato[];
+  onClear: () => void;
 }
 
-export function Filters({ filters, setFilters, divisions, coordinadores, scrumMasters, proyectos, tiposContrato }: FiltersProps) {
+export function Filters({ filters, setFilters, divisions, coordinadores, scrumMasters, proyectos, tiposContrato, onClear }: FiltersProps) {
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
   };
   
   const handleDateChange = (dateRange: DateRange | undefined) => {
-    if (dateRange?.from && dateRange?.to) {
-        handleFilterChange('dateRange', dateRange);
-    } else if (dateRange?.from) {
-        handleFilterChange('dateRange', {from: dateRange.from, to: dateRange.from});
+    if (dateRange?.from && !dateRange.to) {
+      handleFilterChange('dateRange', { from: dateRange.from, to: dateRange.from });
+    } else {
+      handleFilterChange('dateRange', dateRange);
     }
   }
 
   return (
     <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+            <CardTitle className="text-lg">Filtros</CardTitle>
+            <Button variant="ghost" onClick={onClear}>
+                <X className="mr-2 h-4 w-4" />
+                Limpiar Filtros
+            </Button>
+        </div>
+      </CardHeader>
       <CardContent className="p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div className="space-y-2">

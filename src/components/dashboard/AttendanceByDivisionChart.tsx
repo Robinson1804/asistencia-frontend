@@ -11,6 +11,18 @@ interface ChartProps {
 }
 
 export function AttendanceByDivisionChart({ data, dataKey, title, color }: ChartProps) {
+   if (!data || data.length === 0) {
+     return (
+         <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">{title}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center h-[300px]">
+            <p className="text-muted-foreground">No hay datos para mostrar.</p>
+          </CardContent>
+        </Card>
+      )
+  }
   return (
     <Card>
       <CardHeader>

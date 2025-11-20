@@ -10,15 +10,15 @@ interface AttendanceSummaryProps {
 }
 
 export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSummaryProps) {
-  const presentCount = attendances.filter(a => a === 'Presente').length;
-  const tardyCount = attendances.filter(a => a === 'Tardanza').length;
-  const absentCount = attendances.filter(a => a === 'Falta').length;
+  const presentCount = attendances.filter(a => a === 'Ingreso').length;
+  const tardyCount = attendances.filter(a => a === 'Ingreso Tarde').length;
+  const absentCount = attendances.filter(a => a === 'Ausencia').length;
 
   const summaryData = [
     { title: "Registrados", count: totalEmployees, icon: Users, color: "text-primary" },
-    { title: "Presentes", count: presentCount, icon: UserCheck, color: "text-green-500" },
-    { title: "Tardanzas", count: tardyCount, icon: Clock, color: "text-yellow-500" },
-    { title: "Faltas", count: absentCount, icon: UserX, color: "text-destructive" },
+    { title: "Ingresos", count: presentCount, icon: UserCheck, color: "text-green-500" },
+    { title: "Ingresos Tarde", count: tardyCount, icon: Clock, color: "text-yellow-500" },
+    { title: "Ausencias", count: absentCount, icon: UserX, color: "text-destructive" },
   ];
 
   return (

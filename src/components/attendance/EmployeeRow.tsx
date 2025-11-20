@@ -42,9 +42,9 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
-    { value: 'Presente', label: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
-    { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
-    { value: 'Falta', label: 'Falta', icon: XCircle, color: 'text-destructive', borderColor: 'border-destructive' },
+    { value: 'Ingreso', label: 'Ingreso', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
+    { value: 'Ingreso Tarde', label: 'Tarde', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
+    { value: 'Ausencia', label: 'Ausencia', icon: XCircle, color: 'text-destructive', borderColor: 'border-destructive' },
   ];
 
   const employeeName = employee.apellidosNombres || "Empleado";
@@ -52,7 +52,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
   const groupIndex = Math.floor(index / 11);
   const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
 
-  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza';
+  const isJustifiable = currentStatus === 'Ausencia' || currentStatus === 'Ingreso Tarde';
 
   const employeeNameWithInfo = (
     <div className="flex items-center gap-2">
