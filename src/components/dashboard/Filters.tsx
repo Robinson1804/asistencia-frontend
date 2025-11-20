@@ -9,6 +9,7 @@ import type { Division, Coordinador, ScrumMaster, Proyecto, TipoContrato } from 
 import { DateRange } from "react-day-picker";
 import { Button } from "../ui/button";
 import { X } from "lucide-react";
+import { MultiSelect } from "../ui/MultiSelect";
 
 interface FiltersProps {
   filters: any;
@@ -33,6 +34,11 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
       handleFilterChange('dateRange', dateRange);
     }
   }
+
+  const tiposContratoOptions = tiposContrato.map(t => ({
+      value: t.id,
+      label: t.tipoContrato
+  }));
 
   return (
     <Card>
@@ -96,13 +102,12 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
           </div>
           <div className="space-y-2">
             <Label>Tipo de Contrato</Label>
-            <Select value={filters.tipoContrato} onValueChange={(value) => handleFilterChange('tipoContrato', value)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {tiposContrato.map(t => <SelectItem key={t.id} value={t.id}>{t.tipoContrato}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelect
+                options={tiposContratoOptions}
+                selected={filters.tipoContrato}
+                onChange={(value) => handleFilterChange('tipoContrato', value)}
+                placeholder="Seleccionar..."
+            />
           </div>
            <div className="space-y-2">
               <Label htmlFor="name-filter">Apellidos y Nombres</Label>

@@ -15,7 +15,7 @@ import { AttendanceMatrixTable } from '@/components/dashboard/AttendanceMatrixTa
 import { TopAbsencesChart } from '@/components/dashboard/TopAbsencesChart';
 
 
-import { Users, UserCheck, UserX, Clock, HelpCircle } from 'lucide-react';
+import { Users, UserCheck, UserX, Clock } from 'lucide-react';
 
 const initialFilters = {
     dateRange: {
@@ -26,7 +26,7 @@ const initialFilters = {
     coordinador: 'all',
     scrumMaster: 'all',
     proyecto: 'all',
-    tipoContrato: 'all',
+    tipoContrato: [],
     name: '',
     dni: '',
 };
@@ -113,7 +113,7 @@ export default function DashboardPage() {
       const coordinadorMatch = filters.coordinador === 'all' || employee.coordinadorId === filters.coordinador;
       const scrumMasterMatch = filters.scrumMaster === 'all' || employee.scrumMasterId === filters.scrumMaster;
       const proyectoMatch = filters.proyecto === 'all' || employee.proyectoId === filters.proyecto;
-      const tipoContratoMatch = filters.tipoContrato === 'all' || employee.tipoContratoId === filters.tipoContrato;
+      const tipoContratoMatch = filters.tipoContrato.length === 0 || (employee.tipoContratoId && filters.tipoContrato.includes(employee.tipoContratoId));
       const nameMatch = filters.name === '' || employee.apellidosNombres.toLowerCase().includes(filters.name.toLowerCase());
       const dniMatch = filters.dni === '' || employee.dni.includes(filters.dni);
 
@@ -253,11 +253,10 @@ export default function DashboardPage() {
 
   const statusDistribution = useMemo(() => {
     return [
-      { name: 'Ingreso', value: stats.ingresos, fill: 'hsl(var(--color-ingreso))' },
-      { name: 'Ingreso Tarde', value: stats.ingresosTarde, fill: 'hsl(var(--color-ingreso-tarde))' },
-      { name: 'Ausencia', value: stats.ausencias, fill: 'hsl(var(--color-ausencia))' },
-      { name: 'No Registrado', value: stats.noRegistrados, fill: 'hsl(var(--muted))' }
-    ].filter(item => item.name !== 'No Registrado'); // Exclude 'No Registrado'
+      { name: 'Ingresos', value: stats.ingresos, fill: 'hsl(var(--color-ingreso))' },
+      { name: 'Ingresos Tarde', value: stats.ingresosTarde, fill: 'hsl(var(--color-ingreso-tarde))' },
+      { name: 'Ausencias', value: stats.ausencias, fill: 'hsl(var(--color-ausencia))' },
+    ];
   }, [stats]);
 
   const topAbsences = useMemo(() => {
@@ -312,7 +311,7 @@ export default function DashboardPage() {
         <div className="text-center p-8">Cargando datos del dashboard...</div>
       ) : (
         <div className="space-y-8 mt-8">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard title="Total Empleados" value={stats.total} icon={Users} />
                 <StatCard 
                   title="Prom. Ingresos" 
@@ -337,14 +336,6 @@ export default function DashboardPage() {
                   color="text-[hsl(var(--color-ausencia))]"
                   onClick={() => handleStatusFilter('Falta')}
                   isActive={statusFilter === 'Falta'}
-                />
-                <StatCard 
-                  title="Prom. No Registrados" 
-                  value={stats.noRegistrados} 
-                  icon={HelpCircle} 
-                  color="text-muted-foreground"
-                  onClick={() => handleStatusFilter('No Registrado')}
-                  isActive={statusFilter === 'No Registrado'}
                 />
             </div>
             
