@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import type { Employee, AttendanceRecord, Division, Coordinador, ScrumMaster } from '@/types';
+import type { Employee, AttendanceRecord, Division, Coordinador, ScrumMaster, Proyecto, TipoContrato } from '@/types';
 import { startOfDay, endOfDay, eachDayOfInterval, getDay } from 'date-fns';
 
 import { Filters } from '@/components/dashboard/Filters';
@@ -26,6 +27,10 @@ export default function DashboardPage() {
     division: 'all',
     coordinador: 'all',
     scrumMaster: 'all',
+    proyecto: 'all',
+    tipoContrato: 'all',
+    name: '',
+    dni: '',
   });
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
@@ -43,6 +48,12 @@ export default function DashboardPage() {
   );
   const { data: scrumMastersData } = useCollection<ScrumMaster>(
     useMemoFirebase(() => firestore ? collection(firestore, 'scrumMasters') : null, [firestore])
+  );
+  const { data: proyectosData } = useCollection<Proyecto>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'proyectos') : null, [firestore])
+  );
+  const { data: tiposContratoData } = useCollection<TipoContrato>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
   );
 
   useEffect(() => {
@@ -86,11 +97,15 @@ export default function DashboardPage() {
       const divisionMatch = filters.division === 'all' || employee.divisionId === filters.division;
       const coordinadorMatch = filters.coordinador === 'all' || employee.coordinadorId === filters.coordinador;
       const scrumMasterMatch = filters.scrumMaster === 'all' || employee.scrumMasterId === filters.scrumMaster;
-      return employee.activo && divisionMatch && coordinadorMatch && scrumMasterMatch;
+      const proyectoMatch = filters.proyecto === 'all' || employee.proyectoId === filters.proyecto;
+      const tipoContratoMatch = filters.tipoContrato === 'all' || employee.tipoContratoId === filters.tipoContrato;
+      const nameMatch = filters.name === '' || employee.apellidosNombres.toLowerCase().includes(filters.name.toLowerCase());
+      const dniMatch = filters.dni === '' || employee.dni.includes(filters.dni);
+
+      return employee.activo && divisionMatch && coordinadorMatch && scrumMasterMatch && proyectoMatch && tipoContratoMatch && nameMatch && dniMatch;
     });
   }, [employeesData, filters]);
   
-  // This transformation creates a matrix: { employeeId: { 'YYYY-MM-DD': status, ... }, ... }
   const attendanceMatrix = useMemo(() => {
     const matrix: Record<string, Record<string, string>> = {};
     const filteredEmployeeIds = new Set(filteredEmployees.map(e => e.dni));
@@ -114,7 +129,7 @@ export default function DashboardPage() {
 
     const workingDays = eachDayOfInterval({ start: from, end: to }).filter(day => {
         const dayOfWeek = getDay(day);
-        return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+        return dayOfWeek !== 0 && dayOfWeek !== 6;
     });
     
     if (workingDays.length === 0) {
@@ -159,9 +174,8 @@ export default function DashboardPage() {
   }, [filteredEmployees, attendanceMatrix, filters.dateRange]);
   
   const attendanceByDivision = useMemo(() => {
-    const result: { name: string, presentes: number, faltas: number }[] = [];
     const { from, to } = filters.dateRange;
-    if (!from || !to || !divisionsData) return [];
+    if (!from || !to || !divisionsData || filteredEmployees.length === 0) return [];
 
     const workingDays = eachDayOfInterval({ start: from, end: to }).filter(day => {
         const dayOfWeek = getDay(day);
@@ -170,33 +184,50 @@ export default function DashboardPage() {
 
     if (workingDays.length === 0) return [];
 
-    divisionsData.forEach(division => {
-      const employeesInDivision = filteredEmployees.filter(e => e.divisionId === division.id);
-      if (employeesInDivision.length > 0) {
-        let totalPresentes = 0;
-        let totalFaltas = 0;
+    const divisionStats: Record<string, { presentes: number, faltas: number, employeeCount: number }> = {};
 
-        workingDays.forEach(day => {
-            const dateStr = day.toISOString().split('T')[0];
-            employeesInDivision.forEach(employee => {
-                const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
-                if (status === 'Presente' || status === 'Tardanza') {
-                    totalPresentes++;
-                } else if (status === 'Falta') {
-                    totalFaltas++;
-                }
+    divisionsData.forEach(division => {
+        const employeesInDivision = filteredEmployees.filter(e => e.divisionId === division.id);
+        if (employeesInDivision.length > 0) {
+            if (!divisionStats[division.id]) {
+                divisionStats[division.id] = { presentes: 0, faltas: 0, employeeCount: employeesInDivision.length };
+            }
+    
+            workingDays.forEach(day => {
+                const dateStr = day.toISOString().split('T')[0];
+                employeesInDivision.forEach(employee => {
+                    const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+                    if (status === 'Presente' || status === 'Tardanza') {
+                        divisionStats[division.id].presentes++;
+                    } else if (status === 'Falta') {
+                        divisionStats[division.id].faltas++;
+                    }
+                });
             });
-        });
-        
-        result.push({
-          name: division.nombreDivision,
-          presentes: Math.round(totalPresentes / workingDays.length),
-          faltas: Math.round(totalFaltas / workingDays.length),
-        });
-      }
+        }
     });
-    return result;
+
+    return Object.entries(divisionStats).map(([divisionId, stats]) => {
+        const division = divisionsData.find(d => d.id === divisionId);
+        const totalPossibleAttendances = stats.employeeCount * workingDays.length;
+        return {
+          name: division?.nombreDivision || 'N/A',
+          presentes: totalPossibleAttendances > 0 ? (stats.presentes / totalPossibleAttendances) * 100 : 0,
+          faltas: totalPossibleAttendances > 0 ? (stats.faltas / totalPossibleAttendances) * 100 : 0,
+        };
+    })
+    .sort((a, b) => b.faltas - a.faltas); // Ordenar por Faltas para el gráfico de ausencias
+
   }, [filteredEmployees, divisionsData, attendanceMatrix, filters.dateRange]);
+
+  const sortedAttendanceByDivisionPresentes = useMemo(() => {
+    return [...attendanceByDivision].sort((a,b) => b.presentes - a.presentes);
+  }, [attendanceByDivision]);
+  
+  const sortedAttendanceByDivisionFaltas = useMemo(() => {
+    return [...attendanceByDivision].sort((a,b) => b.faltas - a.faltas);
+  }, [attendanceByDivision]);
+
 
   const statusDistribution = useMemo(() => {
     return [
@@ -248,6 +279,8 @@ export default function DashboardPage() {
         divisions={divisionsData || []}
         coordinadores={coordinadoresData || []}
         scrumMasters={scrumMastersData || []}
+        proyectos={proyectosData || []}
+        tiposContrato={tiposContratoData || []}
       />
 
       {isLoading ? (
@@ -265,8 +298,8 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <StatusDistributionChart data={statusDistribution} title="Distribución Promedio de Estados" />
                 <TopAbsencesChart data={topAbsences} title="Top 10 Empleados con más Faltas" />
-                <AttendanceByDivisionChart data={attendanceByDivision} dataKey="faltas" title="Prom. Ausencias por División" color="hsl(var(--color-falta))" />
-                <AttendanceByDivisionChart data={attendanceByDivision} dataKey="presentes" title="Prom. Asistencia por División" color="hsl(var(--color-presente))" />
+                <AttendanceByDivisionChart data={sortedAttendanceByDivisionFaltas} dataKey="faltas" title="Prom. % Ausencias por División" color="hsl(var(--color-falta))" />
+                <AttendanceByDivisionChart data={sortedAttendanceByDivisionPresentes} dataKey="presentes" title="Prom. % Asistencia por División" color="hsl(var(--color-presente))" />
             </div>
             
             <AttendanceMatrixTable
