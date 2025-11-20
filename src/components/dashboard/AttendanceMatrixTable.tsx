@@ -49,7 +49,7 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Matriz de Asistencia (Lunes a Viernes)</CardTitle>
+        <CardTitle>Matriz de Asistencia</CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="w-full whitespace-nowrap rounded-md border">
