@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'No Registrado' | null>(null);
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | null>(null);
 
   // Fetch all reference data
   const { data: employeesData } = useCollection<Employee>(
@@ -62,7 +62,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchAttendance = async () => {
-      if (!firestore || !filters.dateRange?.from || !filters.dateRange?.to) return;
+      if (!firestore || !filters.dateRange?.from || !filters.dateRange?.to) {
+        setAttendanceData([]);
+        setIsLoading(false);
+        return;
+      };
       setIsLoading(true);
 
       const start = Timestamp.fromDate(startOfDay(filters.dateRange.from));
@@ -96,7 +100,7 @@ export default function DashboardPage() {
   }, [firestore, filters.dateRange]);
 
   const workingDays = useMemo(() => {
-    const { from, to } = filters.dateRange;
+    const { from, to } = filters.dateRange || {};
     if (!from || !to) return [];
     return eachDayOfInterval({ start: from, end: to }).filter(day => {
         const dayOfWeek = getDay(day);
@@ -129,16 +133,6 @@ export default function DashboardPage() {
         }
       });
       
-      // Special case for 'No Registrado'
-      if (statusFilter === 'No Registrado') {
-          const registeredEmployeeIds = new Set(attendanceData.map(att => att.employeeId));
-          employees.forEach(emp => {
-              if (!registeredEmployeeIds.has(emp.dni)) {
-                  employeeIdsWithStatus.add(emp.dni);
-              }
-          })
-      }
-
       employees = employees.filter(emp => employeeIdsWithStatus.has(emp.dni));
     }
 
@@ -163,13 +157,12 @@ export default function DashboardPage() {
 
   const stats = useMemo(() => {
     if (filteredEmployees.length === 0 || workingDays.length === 0) {
-      return { total: filteredEmployees.length, ingresos: 0, ingresosTarde: 0, ausencias: 0, noRegistrados: 0 };
+      return { total: filteredEmployees.length, ingresos: 0, ingresosTarde: 0, ausencias: 0 };
     }
 
     let totalIngresos = 0;
     let totalIngresosTarde = 0;
     let totalAusencias = 0;
-    let totalNoRegistrados = 0;
 
     workingDays.forEach(day => {
         const dateStr = day.toISOString().split('T')[0];
@@ -185,9 +178,6 @@ export default function DashboardPage() {
                 case 'Falta':
                     totalAusencias++;
                     break;
-                case 'No Registrado':
-                    totalNoRegistrados++;
-                    break;
             }
         });
     });
@@ -198,7 +188,6 @@ export default function DashboardPage() {
         ingresos: Math.round(totalIngresos / numDays),
         ingresosTarde: Math.round(totalIngresosTarde / numDays),
         ausencias: Math.round(totalAusencias / numDays),
-        noRegistrados: Math.round(totalNoRegistrados / numDays),
     };
 
   }, [filteredEmployees, attendanceMatrix, workingDays]);
@@ -280,12 +269,15 @@ export default function DashboardPage() {
         .slice(0, 10);
   }, [filteredEmployees, attendanceMatrix, workingDays]);
 
-  const handleStatusFilter = (status: AttendanceStatus | 'No Registrado' | null) => {
+  const handleStatusFilter = (status: AttendanceStatus | null) => {
     setStatusFilter(prev => prev === status ? null : status);
   }
 
   const handleClearFilters = () => {
-    setFilters(initialFilters);
+    setFilters({
+        ...initialFilters,
+        dateRange: undefined,
+    });
     setStatusFilter(null);
   }
 
@@ -349,7 +341,6 @@ export default function DashboardPage() {
             <AttendanceMatrixTable
                 employees={filteredEmployees}
                 attendanceMatrix={attendanceMatrix}
-                dateRange={filters.dateRange}
                 workingDays={workingDays}
             />
         </div>

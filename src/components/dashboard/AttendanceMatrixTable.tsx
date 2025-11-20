@@ -13,34 +13,33 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface AttendanceMatrixTableProps {
   employees: Employee[];
   attendanceMatrix: Record<string, Record<string, string>>;
-  dateRange: { from: Date; to: Date };
   workingDays: Date[];
 }
 
-export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange, workingDays }: AttendanceMatrixTableProps) {
+export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays }: AttendanceMatrixTableProps) {
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'Ingreso': return 'default';
-      case 'Ingreso Tarde': return 'secondary';
-      case 'Ausencia': return 'destructive';
+      case 'Presente': return 'default';
+      case 'Tardanza': return 'secondary';
+      case 'Falta': return 'destructive';
       default: return 'outline';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch(status) {
-        case 'Ingreso': return 'bg-green-100 dark:bg-green-900/50';
-        case 'Ingreso Tarde': return 'bg-yellow-100 dark:bg-yellow-900/50';
-        case 'Ausencia': return 'bg-red-100 dark:bg-red-900/50';
+        case 'Presente': return 'bg-green-100 dark:bg-green-900/50';
+        case 'Tardanza': return 'bg-yellow-100 dark:bg-yellow-900/50';
+        case 'Falta': return 'bg-red-100 dark:bg-red-900/50';
         default: return 'bg-gray-100 dark:bg-gray-800/50';
     }
   }
   
   const statusDisplay: Record<string, string> = {
-    'Presente': 'Ingreso',
-    'Tardanza': 'Ing. Tarde',
-    'Falta': 'Ausencia',
+    'Presente': 'Presente',
+    'Tardanza': 'Tardanza',
+    'Falta': 'Falta',
     'No Registrado': 'N/R'
   };
 
@@ -75,8 +74,8 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, dateRange, 
                       const dateStr = format(day, 'yyyy-MM-dd');
                       const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
                       return (
-                        <TableCell key={dateStr} className={cn("text-center p-2", getStatusColor(statusDisplay[status]))}>
-                          <Badge variant={getStatusVariant(statusDisplay[status])} className="w-24 justify-center text-[10px] p-1">
+                        <TableCell key={dateStr} className={cn("text-center p-2", getStatusColor(status))}>
+                          <Badge variant={getStatusVariant(status)} className="w-24 justify-center text-[10px] p-1">
                             {statusDisplay[status] || status}
                           </Badge>
                         </TableCell>
