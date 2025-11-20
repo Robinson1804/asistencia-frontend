@@ -1,6 +1,6 @@
 
 'use client';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,6 +45,7 @@ export default function EmployeeFormPage() {
 
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [formInitialized, setFormInitialized] = useState(false);
 
   const employeeRef = useMemoFirebase(() => {
     if (!firestore || isNew) return null;
@@ -104,7 +105,18 @@ export default function EmployeeFormPage() {
 
   const scrumMasterId = watch('scrumMasterId');
 
+  // Reset form initialization when employee ID changes
   useEffect(() => {
+    console.log('🔄 Employee ID changed to:', id);
+    setFormInitialized(false);
+  }, [id]);
+
+  // Only auto-fill coordinador and division after form is initialized
+  // to prevent overwriting loaded values during initial form population
+  useEffect(() => {
+    // Skip this effect during initial form load
+    if (!formInitialized) return;
+
     if (scrumMasterId && relacionesData) {
       if (scrumMasterId === 'none') {
         setValue('coordinadorId', undefined);
@@ -120,18 +132,14 @@ export default function EmployeeFormPage() {
         setValue('coordinadorId', undefined);
         setValue('divisionId', undefined);
     }
-  }, [scrumMasterId, setValue, relacionesData]);
+  }, [scrumMasterId, setValue, relacionesData, formInitialized]);
 
 
+  // Reset form immediately when employee data loads
   useEffect(() => {
-    if (employeeData) {
-      reset({
-        apellidosNombres: employeeData.apellidosNombres,
-        dni: employeeData.dni,
-        orden: employeeData.orden || '',
-        email: employeeData.email || '',
-        telefono: employeeData.telefono || '',
-        activo: employeeData.activo,
+    if (employeeData && !formInitialized) {
+      console.log('📝 Employee data loaded:', employeeData);
+      console.log('🔑 IDs encontrados:', {
         proyectoId: employeeData.proyectoId,
         sedeId: employeeData.sedeId,
         modalidadId: employeeData.modalidadId,
@@ -141,12 +149,51 @@ export default function EmployeeFormPage() {
         divisionId: employeeData.divisionId,
         scrumMasterId: employeeData.scrumMasterId,
       });
+
+      const formData = {
+        apellidosNombres: employeeData.apellidosNombres || '',
+        dni: employeeData.dni || '',
+        orden: employeeData.orden || '',
+        email: employeeData.email || '',
+        telefono: employeeData.telefono || '',
+        activo: employeeData.activo ?? true,
+        proyectoId: employeeData.proyectoId || undefined,
+        sedeId: employeeData.sedeId || undefined,
+        modalidadId: employeeData.modalidadId || undefined,
+        tipoContratoId: employeeData.tipoContratoId || undefined,
+        dttId: employeeData.dttId || undefined,
+        coordinadorId: employeeData.coordinadorId || undefined,
+        divisionId: employeeData.divisionId || undefined,
+        scrumMasterId: employeeData.scrumMasterId || undefined,
+      };
+
+      console.log('✅ Reseteando formulario con:', formData);
+
+      // Reset with keepDefaultValues: false to ensure complete reset
+      reset(formData, { keepDefaultValues: false });
+
+      // Also set values individually to ensure they're applied
+      setTimeout(() => {
+        if (employeeData.proyectoId) setValue('proyectoId', employeeData.proyectoId);
+        if (employeeData.sedeId) setValue('sedeId', employeeData.sedeId);
+        if (employeeData.modalidadId) setValue('modalidadId', employeeData.modalidadId);
+        if (employeeData.tipoContratoId) setValue('tipoContratoId', employeeData.tipoContratoId);
+        if (employeeData.dttId) setValue('dttId', employeeData.dttId);
+        if (employeeData.scrumMasterId) setValue('scrumMasterId', employeeData.scrumMasterId);
+        if (employeeData.coordinadorId) setValue('coordinadorId', employeeData.coordinadorId);
+        if (employeeData.divisionId) setValue('divisionId', employeeData.divisionId);
+        console.log('✅ Valores individuales aplicados');
+      }, 100);
+
+      setFormInitialized(true);
     }
-  }, [employeeData, reset]);
+  }, [employeeData, formInitialized, reset, setValue]);
 
   const onSubmit = async (data: EmployeeFormData) => {
     if (!firestore) return;
-    
+
+    console.log('💾 Guardando empleado con datos:', data);
+
     const project = projectsData?.find(p => p.id === data.proyectoId);
     const sede = sedesData?.find(s => s.id === data.sedeId);
     const modalidad = modalidadesData?.find(m => m.id === data.modalidadId);
@@ -156,13 +203,23 @@ export default function EmployeeFormPage() {
     const division = divisionesData?.find(d => d.id === data.divisionId);
     const scrumMaster = scrumMastersData?.find(s => s.id === data.scrumMasterId);
 
+    console.log('🔍 Datos encontrados:', {
+      project,
+      sede,
+      modalidad,
+      tipoContrato,
+      dtt,
+      coordinador,
+      division,
+      scrumMaster
+    });
 
     const employeePayload = {
       apellidosNombres: data.apellidosNombres,
       dni: data.dni,
-      orden: data.orden,
-      email: data.email,
-      telefono: data.telefono,
+      orden: data.orden || '',
+      email: data.email || '',
+      telefono: data.telefono || '',
       activo: data.activo,
       // Nested objects
       proyecto: project ? { nombre: project.nombreProyecto, codigo: project.codigoProyecto, descripcion: project.descripcion } : null,
@@ -181,25 +238,36 @@ export default function EmployeeFormPage() {
       dttId: data.dttId || null,
       coordinadorId: data.coordinadorId || null,
       divisionId: data.divisionId || null,
-      scrumMasterId: data.scrumMasterId === 'none' ? null : data.scrumMasterId,
+      scrumMasterId: data.scrumMasterId === 'none' ? null : (data.scrumMasterId || null),
       updatedAt: new Date(),
       ...(isNew && { createdAt: new Date() })
     };
 
+    console.log('📦 Payload a guardar:', employeePayload);
+
     try {
       const docRef = doc(firestore, 'empleados', data.dni);
+      console.log('🚀 Guardando en Firestore...');
       await setDoc(docRef, employeePayload, { merge: true });
+      console.log('✅ Guardado exitoso!');
       toast({
         title: `Empleado ${isNew ? 'creado' : 'actualizado'}`,
         description: `${data.apellidosNombres} ha sido guardado exitosamente.`,
       });
-      router.push('/admin/employees');
-    } catch (error) {
-      console.error("Error saving employee:", error);
+      // Use router.back() to preserve filters instead of router.push()
+      if (isNew) {
+        router.push('/admin/employees');
+      } else {
+        router.back();
+      }
+    } catch (error: any) {
+      console.error("❌ Error completo:", error);
+      console.error("Código de error:", error?.code);
+      console.error("Mensaje:", error?.message);
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
-        description: 'Hubo un problema al guardar el empleado.',
+        description: error?.message || 'Hubo un problema al guardar el empleado.',
       });
     }
   };
@@ -223,7 +291,7 @@ export default function EmployeeFormPage() {
          <CardHeader>
           <CardTitle>{isNew ? 'Añadir Nuevo Empleado' : 'Editar Empleado'}</CardTitle>
         </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form key={`employee-form-${id}`} onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="apellidosNombres">Apellidos y Nombres</Label>
@@ -279,7 +347,7 @@ export default function EmployeeFormPage() {
                     name="dttId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar DTT..." /></SelectTrigger>
                             <SelectContent>
                                 {(dttsData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDTT}</SelectItem>)}
@@ -295,10 +363,10 @@ export default function EmployeeFormPage() {
                     name="proyectoId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
                             <SelectContent>
-                                {(projectsData || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombreProyecto}</SelectItem>)}
+                                {(projectsData || []).map(p => <SelectItem key={p.id} value={p.id}>{p.codigoProyecto} - {p.nombreProyecto}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -311,7 +379,7 @@ export default function EmployeeFormPage() {
                     name="sedeId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
                             <SelectContent>
                                 {(sedesData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
@@ -327,7 +395,7 @@ export default function EmployeeFormPage() {
                     name="modalidadId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar modalidad..." /></SelectTrigger>
                             <SelectContent>
                                 {(modalidadesData || []).map(m => <SelectItem key={m.id} value={m.id}>{m.nombreModalidad}</SelectItem>)}
@@ -343,7 +411,7 @@ export default function EmployeeFormPage() {
                     name="tipoContratoId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
                             <SelectContent>
                                 {(tiposContratoData || []).map(t => <SelectItem key={t.id} value={t.id}>{t.tipoContrato}</SelectItem>)}
@@ -359,7 +427,7 @@ export default function EmployeeFormPage() {
                     name="scrumMasterId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">Sin Scrum Master</SelectItem>
@@ -376,7 +444,7 @@ export default function EmployeeFormPage() {
                     name="coordinadorId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
+                        <Select onValueChange={field.onChange} value={field.value || undefined} disabled>
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
@@ -392,7 +460,7 @@ export default function EmployeeFormPage() {
                     name="divisionId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
+                        <Select onValueChange={field.onChange} value={field.value || undefined} disabled>
                             <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
                             <SelectContent>
                                 {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}

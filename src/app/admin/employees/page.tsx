@@ -1,10 +1,10 @@
 
 'use client';
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import type { Employee } from '@/types';
+import type { Employee, Proyecto, Sede, ScrumMaster } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -29,26 +29,67 @@ import {
 import { deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 type SortableColumns = 'apellidosNombres' | 'dni' | 'proyecto' | 'sede' | 'scrumMaster';
 type SortDirection = 'asc' | 'desc';
 
 export default function EmployeesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
-  const [nameFilter, setNameFilter] = useState('');
-  const [dniFilter, setDniFilter] = useState('');
-  const [sortColumn, setSortColumn] = useState<SortableColumns>('apellidosNombres');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Initialize from URL params
+  const [nameFilter, setNameFilter] = useState(searchParams.get('name') || '');
+  const [dniFilter, setDniFilter] = useState(searchParams.get('dni') || '');
+  const [proyectoFilter, setProyectoFilter] = useState(searchParams.get('proyecto') || 'todos');
+  const [sedeFilter, setSedeFilter] = useState(searchParams.get('sede') || 'todos');
+  const [scrumMasterFilter, setScrumMasterFilter] = useState(searchParams.get('scrumMaster') || 'todos');
+  const [sortColumn, setSortColumn] = useState<SortableColumns>((searchParams.get('sortBy') as SortableColumns) || 'apellidosNombres');
+  const [sortDirection, setSortDirection] = useState<SortDirection>((searchParams.get('sortDir') as SortDirection) || 'asc');
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (nameFilter) params.set('name', nameFilter);
+    if (dniFilter) params.set('dni', dniFilter);
+    if (proyectoFilter !== 'todos') params.set('proyecto', proyectoFilter);
+    if (sedeFilter !== 'todos') params.set('sede', sedeFilter);
+    if (scrumMasterFilter !== 'todos') params.set('scrumMaster', scrumMasterFilter);
+    params.set('sortBy', sortColumn);
+    params.set('sortDir', sortDirection);
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, sortColumn, sortDirection]);
 
   const employeesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'empleados'));
   }, [firestore]);
 
+  const projectsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'proyectos');
+  }, [firestore]);
+
+  const sedesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'sedes');
+  }, [firestore]);
+
+  const scrumMastersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'scrumMasters');
+  }, [firestore]);
+
   const { data: employeesData, isLoading: loadingEmployees } = useCollection<Employee>(employeesQuery);
+  const { data: projectsData } = useCollection<Proyecto>(projectsQuery);
+  const { data: sedesData } = useCollection<Sede>(sedesQuery);
+  const { data: scrumMastersData } = useCollection<ScrumMaster>(scrumMastersQuery);
 
   const handleSort = (column: SortableColumns) => {
     if (sortColumn === column) {
@@ -61,13 +102,16 @@ export default function EmployeesPage() {
 
   const filteredAndSortedEmployees = useMemo(() => {
     if (!employeesData) return [];
-    
+
     const filtered = employeesData
       .map(emp => ({...emp, id: emp.dni}))
       .filter(employee => {
         const nameMatch = employee.apellidosNombres.toLowerCase().includes(nameFilter.toLowerCase());
         const dniMatch = employee.dni.includes(dniFilter);
-        return nameMatch && dniMatch;
+        const proyectoMatch = proyectoFilter === 'todos' || employee.proyectoId === proyectoFilter;
+        const sedeMatch = sedeFilter === 'todos' || employee.sedeId === sedeFilter;
+        const scrumMasterMatch = scrumMasterFilter === 'todos' || employee.scrumMasterId === scrumMasterFilter;
+        return nameMatch && dniMatch && proyectoMatch && sedeMatch && scrumMasterMatch;
       });
 
     return filtered.sort((a, b) => {
@@ -100,7 +144,7 @@ export default function EmployeesPage() {
         return 0;
     });
 
-  }, [employeesData, nameFilter, dniFilter, sortColumn, sortDirection]);
+  }, [employeesData, nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, sortColumn, sortDirection]);
 
   const renderSortIcon = (column: SortableColumns) => {
     if (sortColumn !== column) return null;
@@ -139,19 +183,70 @@ export default function EmployeesPage() {
         </Button>
       </div>
 
-       <div className="mb-6 flex flex-col md:flex-row gap-4">
-        <Input
-          placeholder="Filtrar por apellidos y nombres..."
-          value={nameFilter}
-          onChange={(e) => setNameFilter(e.target.value)}
-          className="max-w-sm"
-        />
-        <Input
-          placeholder="Filtrar por DNI..."
-          value={dniFilter}
-          onChange={(e) => setDniFilter(e.target.value)}
-          className="max-w-sm"
-        />
+       <div className="mb-6 space-y-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <Input
+            placeholder="Filtrar por apellidos y nombres..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            className="max-w-sm"
+          />
+          <Input
+            placeholder="Filtrar por DNI..."
+            value={dniFilter}
+            onChange={(e) => setDniFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="space-y-2 w-full md:w-auto">
+            <Label htmlFor="proyecto-filter" className="text-sm font-medium">Proyecto</Label>
+            <Select value={proyectoFilter} onValueChange={setProyectoFilter}>
+              <SelectTrigger className="w-full md:w-[240px]" id="proyecto-filter">
+                <SelectValue placeholder="Todos los proyectos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los proyectos</SelectItem>
+                {(projectsData || []).map(p => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.codigoProyecto} - {p.nombreProyecto}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 w-full md:w-auto">
+            <Label htmlFor="sede-filter" className="text-sm font-medium">Sede</Label>
+            <Select value={sedeFilter} onValueChange={setSedeFilter}>
+              <SelectTrigger className="w-full md:w-[200px]" id="sede-filter">
+                <SelectValue placeholder="Todas las sedes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas las sedes</SelectItem>
+                {(sedesData || []).map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 w-full md:w-auto">
+            <Label htmlFor="scrummaster-filter" className="text-sm font-medium">Scrum Master</Label>
+            <Select value={scrumMasterFilter} onValueChange={setScrumMasterFilter}>
+              <SelectTrigger className="w-full md:w-[200px]" id="scrummaster-filter">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {(scrumMastersData || []).map(sm => (
+                  <SelectItem key={sm.id} value={sm.id}>{sm.nombreScrumMaster}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">

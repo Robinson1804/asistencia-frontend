@@ -1,4 +1,3 @@
-
 'use client';
 import { Pie, PieChart, ResponsiveContainer, Cell, Legend, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +11,7 @@ export function StatusDistributionChart({ data }: ChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Distribución de Estados</CardTitle>
+        <CardTitle className="text-base font-semibold">Distribución de Estados (Día de Inicio)</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

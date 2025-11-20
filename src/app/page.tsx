@@ -66,10 +66,12 @@ export default function Home() {
 
   const filteredEmployees = useMemo(() => {
     return employees.filter((employee) => {
+      // Solo mostrar empleados activos
+      const isActive = employee.activo !== false;
       const sedeMatch = selectedSede === 'todos' || employee.sede?.nombre === selectedSede;
       const nameMatch = employee.apellidosNombres.toLowerCase().includes(nameFilter.toLowerCase());
       const dniMatch = employee.dni.includes(dniFilter);
-      return sedeMatch && nameMatch && dniMatch;
+      return isActive && sedeMatch && nameMatch && dniMatch;
     });
   }, [employees, selectedSede, nameFilter, dniFilter]);
 

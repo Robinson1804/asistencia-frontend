@@ -1,9 +1,10 @@
 'use client';
-import { DatePicker } from "@/components/attendance/DatePicker";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import type { Division, Coordinador, ScrumMaster } from "@/types";
+import { DateRange } from "react-day-picker";
 
 interface FiltersProps {
   filters: any;
@@ -17,13 +18,24 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
   };
+  
+  const handleDateChange = (dateRange: DateRange | undefined) => {
+    if (dateRange?.from && dateRange?.to) {
+        handleFilterChange('dateRange', dateRange);
+    } else if (dateRange?.from) {
+        handleFilterChange('dateRange', {from: dateRange.from, to: dateRange.from});
+    }
+  }
 
   return (
     <Card>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 items-end">
         <div className="space-y-2">
-          <Label>Fecha</Label>
-          <DatePicker date={filters.date} setDate={(date) => handleFilterChange('date', date)} />
+          <Label>Rango de Fechas</Label>
+          <DateRangePicker 
+            date={filters.dateRange} 
+            setDate={handleDateChange}
+          />
         </div>
         <div className="space-y-2">
           <Label>División</Label>
