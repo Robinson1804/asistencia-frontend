@@ -11,6 +11,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { AttendanceByDivisionChart } from '@/components/dashboard/AttendanceByDivisionChart';
 import { StatusDistributionChart } from '@/components/dashboard/StatusDistributionChart';
 import { AttendanceMatrixTable } from '@/components/dashboard/AttendanceMatrixTable';
+import { TopAbsencesChart } from '@/components/dashboard/TopAbsencesChart';
+
 
 import { Users, UserCheck, UserX, Clock, HelpCircle } from 'lucide-react';
 
@@ -205,6 +207,33 @@ export default function DashboardPage() {
     ];
   }, [stats]);
 
+  const topAbsences = useMemo(() => {
+    const { from, to } = filters.dateRange;
+    if (!from || !to || filteredEmployees.length === 0) return [];
+    
+    const workingDays = eachDayOfInterval({ start: from, end: to }).filter(day => {
+        const dayOfWeek = getDay(day);
+        return dayOfWeek !== 0 && dayOfWeek !== 6;
+    });
+
+    const absencesCount = filteredEmployees.map(employee => {
+        let faltas = 0;
+        workingDays.forEach(day => {
+            const dateStr = day.toISOString().split('T')[0];
+            const status = attendanceMatrix[employee.dni]?.[dateStr];
+            if (status === 'Falta') {
+                faltas++;
+            }
+        });
+        return { name: employee.apellidosNombres, faltas };
+    });
+
+    return absencesCount
+        .filter(item => item.faltas > 0)
+        .sort((a, b) => b.faltas - a.faltas)
+        .slice(0, 10);
+  }, [filteredEmployees, attendanceMatrix, filters.dateRange]);
+
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -233,14 +262,11 @@ export default function DashboardPage() {
                 <StatCard title="Prom. No Registrados" value={stats.noRegistrados} icon={HelpCircle} color="text-muted-foreground" />
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <AttendanceByDivisionChart data={attendanceByDivision} dataKey="faltas" title="Prom. Ausencias por División" color="hsl(var(--color-falta))" />
-                    <AttendanceByDivisionChart data={attendanceByDivision} dataKey="presentes" title="Prom. Asistencia por División" color="hsl(var(--color-presente))" />
-                </div>
-                 <div className="w-full">
-                   <StatusDistributionChart data={statusDistribution} title="Distribución Promedio de Estados" />
-                 </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <StatusDistributionChart data={statusDistribution} title="Distribución Promedio de Estados" />
+                <TopAbsencesChart data={topAbsences} title="Top 10 Empleados con más Faltas" />
+                <AttendanceByDivisionChart data={attendanceByDivision} dataKey="faltas" title="Prom. Ausencias por División" color="hsl(var(--color-falta))" />
+                <AttendanceByDivisionChart data={attendanceByDivision} dataKey="presentes" title="Prom. Asistencia por División" color="hsl(var(--color-presente))" />
             </div>
             
             <AttendanceMatrixTable
