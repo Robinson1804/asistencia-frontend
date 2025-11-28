@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import type { Employee, AttendanceRecord, Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, AttendanceStatus, Sede } from '@/types';
+import type { Employee, Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, Sede, AttendanceStatus, AttendanceRecord } from '@/types';
 import { startOfDay, endOfDay, eachDayOfInterval, getDay } from 'date-fns';
 
 import { Filters } from '@/components/dashboard/Filters';
@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState(initialFilters);
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | null>(null);
 
   // Fetch all reference data
@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const { data: tiposContratoData } = useCollection<TipoContrato>(
     useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
   );
-    const { data: sedesData } = useCollection<Sede>(
+  const { data: sedesData } = useCollection<Sede>(
     useMemoFirebase(() => firestore ? collection(firestore, 'sedes') : null, [firestore])
   );
 
