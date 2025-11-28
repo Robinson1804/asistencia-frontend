@@ -4,8 +4,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import type { Employee, AttendanceRecord, Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, AttendanceStatus } from '@/types';
-import { startOfDay, endOfDay, eachDayOfInterval, getDay, subDays } from 'date-fns';
+import type { Employee, AttendanceRecord, Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, AttendanceStatus, Sede } from '@/types';
+import { startOfDay, endOfDay, eachDayOfInterval, getDay } from 'date-fns';
 
 import { Filters } from '@/components/dashboard/Filters';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -18,10 +18,7 @@ import { TopAbsencesChart } from '@/components/dashboard/TopAbsencesChart';
 import { Users, UserCheck, UserX, Clock } from 'lucide-react';
 
 const initialFilters = {
-    dateRange: {
-      from: subDays(startOfDay(new Date()), 7),
-      to: endOfDay(new Date()),
-    },
+    dateRange: undefined,
     division: 'all',
     coordinador: 'all',
     scrumMaster: 'all',
@@ -29,6 +26,7 @@ const initialFilters = {
     tipoContrato: [],
     name: '',
     dni: '',
+    sede: 'all',
 };
 
 
@@ -58,6 +56,9 @@ export default function DashboardPage() {
   );
   const { data: tiposContratoData } = useCollection<TipoContrato>(
     useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
+  );
+    const { data: sedesData } = useCollection<Sede>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'sedes') : null, [firestore])
   );
 
   useEffect(() => {
@@ -120,8 +121,10 @@ export default function DashboardPage() {
       const tipoContratoMatch = filters.tipoContrato.length === 0 || (employee.tipoContratoId && filters.tipoContrato.includes(employee.tipoContratoId));
       const nameMatch = filters.name === '' || employee.apellidosNombres.toLowerCase().includes(filters.name.toLowerCase());
       const dniMatch = filters.dni === '' || employee.dni.includes(filters.dni);
+      const sedeMatch = filters.sede === 'all' || employee.sedeId === filters.sede;
 
-      return employee.activo && divisionMatch && coordinadorMatch && scrumMasterMatch && proyectoMatch && tipoContratoMatch && nameMatch && dniMatch;
+
+      return employee.activo && divisionMatch && coordinadorMatch && scrumMasterMatch && proyectoMatch && tipoContratoMatch && nameMatch && dniMatch && sedeMatch;
     });
 
     if (statusFilter) {
@@ -157,12 +160,12 @@ export default function DashboardPage() {
 
   const stats = useMemo(() => {
     if (filteredEmployees.length === 0 || workingDays.length === 0) {
-      return { total: filteredEmployees.length, ingresos: 0, ingresosTarde: 0, ausencias: 0 };
+      return { total: filteredEmployees.length, presentes: 0, tardanzas: 0, faltas: 0 };
     }
 
-    let totalIngresos = 0;
-    let totalIngresosTarde = 0;
-    let totalAusencias = 0;
+    let totalPresentes = 0;
+    let totalTardanzas = 0;
+    let totalFaltas = 0;
 
     workingDays.forEach(day => {
         const dateStr = day.toISOString().split('T')[0];
@@ -170,13 +173,13 @@ export default function DashboardPage() {
             const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
             switch (status) {
                 case 'Presente':
-                    totalIngresos++;
+                    totalPresentes++;
                     break;
                 case 'Tardanza':
-                    totalIngresosTarde++;
+                    totalTardanzas++;
                     break;
                 case 'Falta':
-                    totalAusencias++;
+                    totalFaltas++;
                     break;
             }
         });
@@ -185,9 +188,9 @@ export default function DashboardPage() {
     const numDays = workingDays.length;
     return {
         total: filteredEmployees.length,
-        ingresos: Math.round(totalIngresos / numDays),
-        ingresosTarde: Math.round(totalIngresosTarde / numDays),
-        ausencias: Math.round(totalAusencias / numDays),
+        presentes: Math.round(totalPresentes / numDays),
+        tardanzas: Math.round(totalTardanzas / numDays),
+        faltas: Math.round(totalFaltas / numDays),
     };
 
   }, [filteredEmployees, attendanceMatrix, workingDays]);
@@ -195,13 +198,13 @@ export default function DashboardPage() {
   const attendanceByDivision = useMemo(() => {
     if (!divisionsData || filteredEmployees.length === 0 || workingDays.length === 0) return [];
 
-    const divisionStats: Record<string, { ingresos: number, ausencias: number, employeeCount: number }> = {};
+    const divisionStats: Record<string, { presentes: number, faltas: number, employeeCount: number }> = {};
 
     divisionsData.forEach(division => {
         const employeesInDivision = filteredEmployees.filter(e => e.divisionId === division.id);
         if (employeesInDivision.length > 0) {
             if (!divisionStats[division.id]) {
-                divisionStats[division.id] = { ingresos: 0, ausencias: 0, employeeCount: employeesInDivision.length };
+                divisionStats[division.id] = { presentes: 0, faltas: 0, employeeCount: employeesInDivision.length };
             }
     
             workingDays.forEach(day => {
@@ -209,9 +212,9 @@ export default function DashboardPage() {
                 employeesInDivision.forEach(employee => {
                     const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
                     if (status === 'Presente' || status === 'Tardanza') {
-                        divisionStats[division.id].ingresos++;
+                        divisionStats[division.id].presentes++;
                     } else if (status === 'Falta') {
-                        divisionStats[division.id].ausencias++;
+                        divisionStats[division.id].faltas++;
                     }
                 });
             });
@@ -223,29 +226,29 @@ export default function DashboardPage() {
         const totalPossibleAttendances = stats.employeeCount * workingDays.length;
         return {
           name: division?.nombreDivision || 'N/A',
-          ingresos: totalPossibleAttendances > 0 ? (stats.ingresos / totalPossibleAttendances) * 100 : 0,
-          ausencias: totalPossibleAttendances > 0 ? (stats.ausencias / totalPossibleAttendances) * 100 : 0,
+          presentes: totalPossibleAttendances > 0 ? (stats.presentes / totalPossibleAttendances) * 100 : 0,
+          faltas: totalPossibleAttendances > 0 ? (stats.faltas / totalPossibleAttendances) * 100 : 0,
         };
     })
-    .sort((a, b) => b.ausencias - a.ausencias);
 
   }, [filteredEmployees, divisionsData, attendanceMatrix, workingDays]);
 
   const sortedAttendanceByDivisionIngresos = useMemo(() => {
-    return [...attendanceByDivision].sort((a,b) => b.ingresos - a.ingresos);
+    return [...attendanceByDivision].sort((a,b) => b.presentes - a.presentes);
   }, [attendanceByDivision]);
   
   const sortedAttendanceByDivisionAusencias = useMemo(() => {
-    return [...attendanceByDivision].sort((a,b) => b.ausencias - a.ausencias);
+    return [...attendanceByDivision].sort((a,b) => b.faltas - a.faltas);
   }, [attendanceByDivision]);
 
 
   const statusDistribution = useMemo(() => {
-    return [
-      { name: 'Ingresos', value: stats.ingresos, fill: 'hsl(var(--color-ingreso))' },
-      { name: 'Ingresos Tarde', value: stats.ingresosTarde, fill: 'hsl(var(--color-ingreso-tarde))' },
-      { name: 'Ausencias', value: stats.ausencias, fill: 'hsl(var(--color-ausencia))' },
+    const data = [
+      { name: 'Ingresos', value: stats.presentes, fill: 'hsl(var(--color-ingreso))' },
+      { name: 'Ingresos Tarde', value: stats.tardanzas, fill: 'hsl(var(--color-ingreso-tarde))' },
+      { name: 'Ausencias', value: stats.faltas, fill: 'hsl(var(--color-ausencia))' },
     ];
+    return data.filter(item => item.value > 0);
   }, [stats]);
 
   const topAbsences = useMemo(() => {
@@ -274,10 +277,7 @@ export default function DashboardPage() {
   }
 
   const handleClearFilters = () => {
-    setFilters({
-        ...initialFilters,
-        dateRange: undefined,
-    });
+    setFilters(initialFilters);
     setStatusFilter(null);
   }
 
@@ -296,6 +296,7 @@ export default function DashboardPage() {
         scrumMasters={scrumMastersData || []}
         proyectos={proyectosData || []}
         tiposContrato={tiposContratoData || []}
+        sedes={sedesData || []}
         onClear={handleClearFilters}
       />
 
@@ -307,7 +308,7 @@ export default function DashboardPage() {
                 <StatCard title="Total Empleados" value={stats.total} icon={Users} />
                 <StatCard 
                   title="Prom. Ingresos" 
-                  value={stats.ingresos} 
+                  value={stats.presentes} 
                   icon={UserCheck} 
                   color="text-[hsl(var(--color-ingreso))]" 
                   onClick={() => handleStatusFilter('Presente')}
@@ -315,7 +316,7 @@ export default function DashboardPage() {
                 />
                 <StatCard 
                   title="Prom. Ingresos Tarde" 
-                  value={stats.ingresosTarde} 
+                  value={stats.tardanzas} 
                   icon={Clock} 
                   color="text-[hsl(var(--color-ingreso-tarde))]"
                   onClick={() => handleStatusFilter('Tardanza')}
@@ -323,7 +324,7 @@ export default function DashboardPage() {
                 />
                 <StatCard 
                   title="Prom. Ausencias" 
-                  value={stats.ausencias} 
+                  value={stats.faltas} 
                   icon={UserX} 
                   color="text-[hsl(var(--color-ausencia))]"
                   onClick={() => handleStatusFilter('Falta')}
@@ -334,8 +335,8 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <StatusDistributionChart data={statusDistribution} title="Distribución Promedio de Estados" />
                 <TopAbsencesChart data={topAbsences} title="Top 10 Empleados con más Ausencias" />
-                <AttendanceByDivisionChart data={sortedAttendanceByDivisionAusencias} dataKey="ausencias" title="Prom. % Ausencias por División" color="hsl(var(--color-ausencia))" />
-                <AttendanceByDivisionChart data={sortedAttendanceByDivisionIngresos} dataKey="ingresos" title="Prom. % Ingresos por División" color="hsl(var(--color-ingreso))" />
+                <AttendanceByDivisionChart data={sortedAttendanceByDivisionAusencias} dataKey="faltas" title="Prom. % Ausencias por División" color="hsl(var(--color-ausencia))" />
+                <AttendanceByDivisionChart data={sortedAttendanceByDivisionIngresos} dataKey="presentes" title="Prom. % Ingresos por División" color="hsl(var(--color-ingreso))" />
             </div>
             
             <AttendanceMatrixTable

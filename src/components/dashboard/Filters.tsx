@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import type { Division, Coordinador, ScrumMaster, Proyecto, TipoContrato } from "@/types";
+import type { Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, Sede } from "@/types";
 import { DateRange } from "react-day-picker";
 import { Button } from "../ui/button";
 import { X } from "lucide-react";
@@ -19,10 +19,11 @@ interface FiltersProps {
   scrumMasters: ScrumMaster[];
   proyectos: Proyecto[];
   tiposContrato: TipoContrato[];
+  sedes: Sede[];
   onClear: () => void;
 }
 
-export function Filters({ filters, setFilters, divisions, coordinadores, scrumMasters, proyectos, tiposContrato, onClear }: FiltersProps) {
+export function Filters({ filters, setFilters, divisions, coordinadores, scrumMasters, proyectos, tiposContrato, sedes, onClear }: FiltersProps) {
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
   };
@@ -59,6 +60,16 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
               date={filters.dateRange} 
               setDate={handleDateChange}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Sede</Label>
+            <Select value={filters.sede} onValueChange={(value) => handleFilterChange('sede', value)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {sedes.map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>División</Label>

@@ -105,27 +105,51 @@ export default function EmployeeFormPage() {
 
   const scrumMasterId = watch('scrumMasterId');
 
+  // Reset form initialization when employee ID changes
   useEffect(() => {
-    // We only want this effect to run on user interaction, not on initial load
+    console.log('🔄 Employee ID changed to:', id);
+    setFormInitialized(false);
+  }, [id]);
+
+  // Only auto-fill coordinador and division after form is initialized
+  // to prevent overwriting loaded values during initial form population
+  useEffect(() => {
+    // Skip this effect during initial form load
     if (!formInitialized) return;
 
-    if (scrumMasterId && scrumMasterId !== 'none' && relacionesData) {
+    if (scrumMasterId && relacionesData) {
+      if (scrumMasterId === 'none') {
+        setValue('coordinadorId', undefined);
+        setValue('divisionId', undefined);
+        return;
+      }
       const relacion = relacionesData.find(r => r.scrumMasterId === scrumMasterId);
       if (relacion) {
         setValue('coordinadorId', relacion.coordinadorId, { shouldValidate: true });
         setValue('divisionId', relacion.divisionId, { shouldValidate: true });
       }
-    } else {
-        // If no scrum master is selected, clear coordinator and division
+    } else if (!scrumMasterId) {
         setValue('coordinadorId', undefined);
         setValue('divisionId', undefined);
     }
   }, [scrumMasterId, setValue, relacionesData, formInitialized]);
 
 
-  // Effect to populate form with existing employee data
+  // Reset form immediately when employee data loads
   useEffect(() => {
-    if (employeeData && !isNew) {
+    if (employeeData && !formInitialized) {
+      console.log('📝 Employee data loaded:', employeeData);
+      console.log('🔑 IDs encontrados:', {
+        proyectoId: employeeData.proyectoId,
+        sedeId: employeeData.sedeId,
+        modalidadId: employeeData.modalidadId,
+        tipoContratoId: employeeData.tipoContratoId,
+        dttId: employeeData.dttId,
+        coordinadorId: employeeData.coordinadorId,
+        divisionId: employeeData.divisionId,
+        scrumMasterId: employeeData.scrumMasterId,
+      });
+
       const formData = {
         apellidosNombres: employeeData.apellidosNombres || '',
         dni: employeeData.dni || '',
@@ -142,18 +166,34 @@ export default function EmployeeFormPage() {
         divisionId: employeeData.divisionId || undefined,
         scrumMasterId: employeeData.scrumMasterId || undefined,
       };
-      reset(formData);
-      // We must mark the form as initialized AFTER resetting it
-      setFormInitialized(true); 
-    } else if (isNew) {
-      // For a new employee, the form is ready to be filled, so we mark it as initialized.
+
+      console.log('✅ Reseteando formulario con:', formData);
+
+      // Reset with keepDefaultValues: false to ensure complete reset
+      reset(formData, { keepDefaultValues: false });
+
+      // Also set values individually to ensure they're applied
+      setTimeout(() => {
+        if (employeeData.proyectoId) setValue('proyectoId', employeeData.proyectoId);
+        if (employeeData.sedeId) setValue('sedeId', employeeData.sedeId);
+        if (employeeData.modalidadId) setValue('modalidadId', employeeData.modalidadId);
+        if (employeeData.tipoContratoId) setValue('tipoContratoId', employeeData.tipoContratoId);
+        if (employeeData.dttId) setValue('dttId', employeeData.dttId);
+        if (employeeData.scrumMasterId) setValue('scrumMasterId', employeeData.scrumMasterId);
+        if (employeeData.coordinadorId) setValue('coordinadorId', employeeData.coordinadorId);
+        if (employeeData.divisionId) setValue('divisionId', employeeData.divisionId);
+        console.log('✅ Valores individuales aplicados');
+      }, 100);
+
       setFormInitialized(true);
     }
-  }, [employeeData, isNew, reset]);
+  }, [employeeData, formInitialized, reset, setValue]);
 
 
   const onSubmit = async (data: EmployeeFormData) => {
     if (!firestore) return;
+
+    console.log('💾 Guardando empleado con datos:', data);
 
     const project = projectsData?.find(p => p.id === data.proyectoId);
     const sede = sedesData?.find(s => s.id === data.sedeId);
@@ -163,6 +203,17 @@ export default function EmployeeFormPage() {
     const coordinador = coordinadoresData?.find(c => c.id === data.coordinadorId);
     const division = divisionesData?.find(d => d.id === data.divisionId);
     const scrumMaster = scrumMastersData?.find(s => s.id === data.scrumMasterId);
+
+    console.log('🔍 Datos encontrados:', {
+      project,
+      sede,
+      modalidad,
+      tipoContrato,
+      dtt,
+      coordinador,
+      division,
+      scrumMaster
+    });
 
     const employeePayload = {
       apellidosNombres: data.apellidosNombres,
@@ -193,20 +244,27 @@ export default function EmployeeFormPage() {
       ...(isNew && { createdAt: new Date() })
     };
 
+    console.log('📦 Payload a guardar:', employeePayload);
+
     try {
       const docRef = doc(firestore, 'empleados', data.dni);
+      console.log('🚀 Guardando en Firestore...');
       await setDoc(docRef, employeePayload, { merge: true });
+      console.log('✅ Guardado exitoso!');
       toast({
         title: `Empleado ${isNew ? 'creado' : 'actualizado'}`,
         description: `${data.apellidosNombres} ha sido guardado exitosamente.`,
       });
+      // Use router.back() to preserve filters instead of router.push()
       if (isNew) {
         router.push('/admin/employees');
       } else {
         router.back();
       }
     } catch (error: any) {
-      console.error("Error saving employee:", error);
+      console.error("❌ Error completo:", error);
+      console.error("Código de error:", error?.code);
+      console.error("Mensaje:", error?.message);
       toast({
         variant: 'destructive',
         title: 'Error al guardar',
@@ -236,7 +294,7 @@ export default function EmployeeFormPage() {
          <CardHeader>
           <CardTitle>{isNew ? 'Añadir Nuevo Empleado' : 'Editar Empleado'}</CardTitle>
         </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form key={`employee-form-${id}`} onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="apellidosNombres">Apellidos y Nombres</Label>
