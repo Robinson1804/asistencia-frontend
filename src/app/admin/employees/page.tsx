@@ -14,7 +14,9 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,7 +164,7 @@ export default function EmployeesPage() {
 
   const handleDeleteEmployee = async () => {
     if (!firestore || !employeeToDelete) return;
-    
+
     try {
       await deleteDoc(doc(firestore, "empleados", employeeToDelete.dni));
       toast({
@@ -181,15 +183,71 @@ export default function EmployeesPage() {
     }
   };
 
+  const handleExportExcel = () => {
+    const dataToExport = filteredAndSortedEmployees.map((employee) => ({
+      'Apellidos y Nombres': employee.apellidosNombres,
+      'DNI': employee.dni,
+      'Email': employee.email || '-',
+      'Teléfono': employee.telefono || '-',
+      'Correo Personal': employee.correoPersonal || '-',
+      'Proyecto': employee.proyecto?.nombre || '-',
+      'Código Proyecto': employee.proyecto?.codigo || '-',
+      'Coordinador': employee.coordinador?.nombre || '-',
+      'Scrum Master': employee.scrumMaster?.nombre || '-',
+      'División': employee.division?.nombre || '-',
+      'Sede': employee.sede?.nombre || '-',
+      'Modalidad': employee.modalidad?.nombre || '-',
+      'Tipo Contrato': employee.tipoContrato?.tipo || '-',
+      'DTT': employee.dtt?.nombre || '-',
+      'Estado': employee.activo ? 'Activo' : 'Inactivo',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Empleados');
+
+    // Ajustar ancho de columnas
+    worksheet['!cols'] = [
+      { wch: 35 }, // Apellidos y Nombres
+      { wch: 12 }, // DNI
+      { wch: 30 }, // Email
+      { wch: 12 }, // Teléfono
+      { wch: 30 }, // Correo Personal
+      { wch: 25 }, // Proyecto
+      { wch: 15 }, // Código Proyecto
+      { wch: 20 }, // Coordinador
+      { wch: 20 }, // Scrum Master
+      { wch: 20 }, // División
+      { wch: 15 }, // Sede
+      { wch: 15 }, // Modalidad
+      { wch: 18 }, // Tipo Contrato
+      { wch: 20 }, // DTT
+      { wch: 10 }, // Estado
+    ];
+
+    const fileName = `Empleados_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
+    toast({
+      title: "Exportación exitosa",
+      description: `Se exportaron ${dataToExport.length} empleados.`,
+    });
+  };
 
   return (
     <div className="container mx-auto p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Gestión de Empleados</h1>
-        <Button onClick={() => router.push('/admin/employees/new')}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Añadir Empleado
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportExcel} disabled={filteredAndSortedEmployees.length === 0}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar Excel
+          </Button>
+          <Button onClick={() => router.push('/admin/employees/new')}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Añadir Empleado
+          </Button>
+        </div>
       </div>
 
        <div className="mb-6 p-4 border rounded-lg bg-card space-y-4">

@@ -4,12 +4,12 @@ import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import type { Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, Sede } from "@/types";
 import { DateRange } from "react-day-picker";
 import { Button } from "../ui/button";
 import { X } from "lucide-react";
 import { MultiSelect } from "../ui/MultiSelect";
+import { startOfMonth, endOfMonth } from "date-fns";
 
 interface FiltersProps {
   filters: any;
@@ -23,22 +23,84 @@ interface FiltersProps {
   onClear: () => void;
 }
 
+// Generate month options for the current and previous year
+const generateMonthOptions = () => {
+  const options: { value: string; label: string }[] = [];
+  const currentYear = new Date().getFullYear();
+  const months = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+
+  // Current year
+  for (let m = 0; m < 12; m++) {
+    options.push({
+      value: `${currentYear}-${String(m + 1).padStart(2, '0')}`,
+      label: `${months[m]} ${currentYear}`
+    });
+  }
+  // Previous year
+  for (let m = 0; m < 12; m++) {
+    options.push({
+      value: `${currentYear - 1}-${String(m + 1).padStart(2, '0')}`,
+      label: `${months[m]} ${currentYear - 1}`
+    });
+  }
+  return options;
+};
+
+const monthOptions = generateMonthOptions();
+
 export function Filters({ filters, setFilters, divisions, coordinadores, scrumMasters, proyectos, tiposContrato, sedes, onClear }: FiltersProps) {
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
   };
-  
+
+  const handleMonthChange = (month: string) => {
+    if (month === 'custom') {
+      handleFilterChange('month', 'custom');
+      return;
+    }
+    const [year, monthNum] = month.split('-').map(Number);
+    const date = new Date(year, monthNum - 1, 1);
+    const from = startOfMonth(date);
+    const to = endOfMonth(date);
+    setFilters((prev: any) => ({
+      ...prev,
+      month,
+      dateRange: { from, to }
+    }));
+  };
+
   const handleDateChange = (dateRange: DateRange | undefined) => {
     if (dateRange?.from && !dateRange.to) {
-      handleFilterChange('dateRange', { from: dateRange.from, to: dateRange.from });
+      setFilters((prev: any) => ({
+        ...prev,
+        dateRange: { from: dateRange.from, to: dateRange.from },
+        month: 'custom'
+      }));
     } else {
-      handleFilterChange('dateRange', dateRange);
+      setFilters((prev: any) => ({
+        ...prev,
+        dateRange,
+        month: 'custom'
+      }));
     }
-  }
+  };
 
   const tiposContratoOptions = tiposContrato.map(t => ({
       value: t.id,
       label: t.tipoContrato
+  }));
+
+  const sedesOptions = sedes.map(s => ({
+      value: s.id,
+      label: s.nombreSede
+  }));
+
+  const proyectosOptions = proyectos.map(p => ({
+      value: p.id,
+      label: p.codigoProyecto
   }));
 
   return (
@@ -55,21 +117,32 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
       <CardContent className="p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div className="space-y-2">
-            <Label>Rango de Fechas</Label>
-            <DateRangePicker 
-              date={filters.dateRange} 
+            <Label>Mes</Label>
+            <Select value={filters.month} onValueChange={handleMonthChange}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar mes" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">Rango personalizado</SelectItem>
+                {monthOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Rango de Fechas {filters.month !== 'custom' && <span className="text-xs text-muted-foreground">(opcional)</span>}</Label>
+            <DateRangePicker
+              date={filters.dateRange}
               setDate={handleDateChange}
             />
           </div>
           <div className="space-y-2">
             <Label>Sede</Label>
-            <Select value={filters.sede} onValueChange={(value) => handleFilterChange('sede', value)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {sedes.map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelect
+                options={sedesOptions}
+                selected={filters.sede}
+                onChange={(value) => handleFilterChange('sede', value)}
+                placeholder="Todas las sedes"
+            />
           </div>
           <div className="space-y-2">
             <Label>División</Label>
@@ -103,13 +176,12 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
           </div>
           <div className="space-y-2">
             <Label>Proyecto</Label>
-            <Select value={filters.proyecto} onValueChange={(value) => handleFilterChange('proyecto', value)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {proyectos.map(p => <SelectItem key={p.id} value={p.id}>{p.nombreProyecto}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelect
+                options={proyectosOptions}
+                selected={filters.proyecto}
+                onChange={(value) => handleFilterChange('proyecto', value)}
+                placeholder="Todos los proyectos"
+            />
           </div>
           <div className="space-y-2">
             <Label>Tipo de Contrato</Label>
@@ -120,24 +192,6 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
                 placeholder="Seleccionar..."
             />
           </div>
-           <div className="space-y-2">
-              <Label htmlFor="name-filter">Apellidos y Nombres</Label>
-              <Input
-                id="name-filter"
-                value={filters.name}
-                onChange={(e) => handleFilterChange('name', e.target.value)}
-                placeholder="Buscar..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dni-filter">DNI</Label>
-              <Input
-                id="dni-filter"
-                value={filters.dni}
-                onChange={(e) => handleFilterChange('dni', e.target.value)}
-                placeholder="Buscar..."
-              />
-            </div>
         </div>
       </CardContent>
     </Card>

@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { LogOut, Save, UserCog, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfDay, endOfDay, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
@@ -211,7 +212,7 @@ export default function Home() {
     try {
       const attendanceDate = startOfDay(selectedDate);
       const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
-      const dateStr = attendanceDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateStr = format(attendanceDate, 'yyyy-MM-dd'); // YYYY-MM-DD en zona horaria local
 
       const batches: any[] = [];
       let currentBatch = writeBatch(firestore);

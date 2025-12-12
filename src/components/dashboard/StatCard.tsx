@@ -5,16 +5,17 @@ import { cn } from "@/lib/utils";
 interface StatCardProps {
   title: string;
   value: string | number;
+  subtitle?: string;
   icon: React.ElementType;
   color?: string;
   onClick?: () => void;
   isActive?: boolean;
 }
 
-export function StatCard({ title, value, icon: Icon, color, onClick, isActive }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon: Icon, color, onClick, isActive }: StatCardProps) {
   const isClickable = !!onClick;
   return (
-    <Card 
+    <Card
       onClick={onClick}
       className={cn(
         "transition-all",
@@ -28,6 +29,7 @@ export function StatCard({ title, value, icon: Icon, color, onClick, isActive }:
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </CardContent>
     </Card>
   );

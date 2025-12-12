@@ -1,6 +1,6 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
-import type { Employee } from '@/types';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import type { Employee, AttendanceStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
@@ -9,24 +9,56 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, XCircle, HelpCircle, ChevronLeft, ChevronRight, FileCheck, ArrowUpDown, ArrowDown, ArrowUp, Info } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, HelpCircle, ChevronLeft, ChevronRight, FileCheck, Save, ArrowUpDown, ArrowDown, ArrowUp, Download, Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import * as XLSX from 'xlsx';
 
-interface AttendanceMatrixTableProps {
+interface EditableAttendanceMatrixProps {
   employees: Employee[];
   attendanceMatrix: Record<string, Record<string, string>>;
   workingDays: Date[];
   filters: { name: string; dni: string };
   setFilters: (filters: { name: string; dni: string }) => void;
+  onAttendanceChange: (employeeDni: string, dateStr: string, status: AttendanceStatus) => void;
+  pendingChanges: Record<string, Record<string, AttendanceStatus>>;
+  onSave: () => void;
+  isSaving: boolean;
 }
 
 const ITEMS_PER_PAGE = 15;
 
 type SortOrder = 'none' | 'desc' | 'asc';
 
-export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays, filters, setFilters }: AttendanceMatrixTableProps) {
+const STATUS_OPTIONS: { value: AttendanceStatus; label: string; icon: React.ReactNode; color: string }[] = [
+  { value: 'Presente', label: 'Presente', icon: <CheckCircle className="h-4 w-4" />, color: 'text-green-600' },
+  { value: 'Tardanza', label: 'Tardanza', icon: <Clock className="h-4 w-4" />, color: 'text-yellow-600' },
+  { value: 'Falta', label: 'Falta', icon: <XCircle className="h-4 w-4" />, color: 'text-red-600' },
+];
+
+export function EditableAttendanceMatrix({
+  employees,
+  attendanceMatrix,
+  workingDays,
+  filters,
+  setFilters,
+  onAttendanceChange,
+  pendingChanges,
+  onSave,
+  isSaving
+}: EditableAttendanceMatrixProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortByAbsence, setSortByAbsence] = useState<SortOrder>('none');
+
+  // Count pending changes
+  const pendingChangesCount = useMemo(() => {
+    let count = 0;
+    Object.values(pendingChanges).forEach(dateChanges => {
+      count += Object.keys(dateChanges).length;
+    });
+    return count;
+  }, [pendingChanges]);
 
   // Calculate absence percentage for each employee
   const calculateAbsencePercentage = (employeeDni: string): number => {
@@ -35,7 +67,8 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
     let absences = 0;
     workingDays.forEach(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
-      const status = attendanceMatrix[employeeDni]?.[dateStr] || 'No Registrado';
+      // Check pending changes first, then original matrix
+      const status: string = pendingChanges[employeeDni]?.[dateStr] || attendanceMatrix[employeeDni]?.[dateStr] || 'No Registrado';
       if (status === 'Falta' || status === 'Falta Justificada') {
         absences++;
       }
@@ -53,12 +86,12 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
       const bPercentage = calculateAbsencePercentage(b.dni);
 
       if (sortByAbsence === 'desc') {
-        return bPercentage - aPercentage; // Mayor a menor
+        return bPercentage - aPercentage;
       } else {
-        return aPercentage - bPercentage; // Menor a mayor
+        return aPercentage - bPercentage;
       }
     });
-  }, [employees, sortByAbsence, workingDays, attendanceMatrix]);
+  }, [employees, sortByAbsence, workingDays, attendanceMatrix, pendingChanges]);
 
   const totalPages = Math.ceil(sortedEmployees.length / ITEMS_PER_PAGE);
   const paginatedEmployees = useMemo(() => {
@@ -66,7 +99,7 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
     return sortedEmployees.slice(start, start + ITEMS_PER_PAGE);
   }, [sortedEmployees, currentPage]);
 
-  // Reset to page 1 when employees change (filters applied)
+  // Reset to page 1 when employees change
   useEffect(() => {
     setCurrentPage(1);
   }, [employees.length, sortByAbsence]);
@@ -129,10 +162,88 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
     'No Registrado': 'No Registrado',
   };
 
+  const handleStatusSelect = (employeeDni: string, dateStr: string, status: AttendanceStatus) => {
+    onAttendanceChange(employeeDni, dateStr, status);
+  };
+
+  const handleExportExcel = () => {
+    // Preparar datos para Excel usando todos los empleados filtrados (no paginados)
+    const excelData = sortedEmployees.map((employee) => {
+      const row: Record<string, string | number> = {
+        'Apellidos y Nombres': employee.apellidosNombres,
+        'DNI': employee.dni,
+      };
+
+      // Agregar columnas por cada día
+      workingDays.forEach((day) => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayHeader = format(day, 'EEE d', { locale: es });
+        const originalStatus = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+        const currentStatus = pendingChanges[employee.dni]?.[dateStr] || originalStatus;
+
+        // Usar abreviaciones para el Excel
+        const statusAbbrev: Record<string, string> = {
+          'Presente': 'P',
+          'Tardanza': 'T',
+          'Falta': 'F',
+          'Falta Justificada': 'FJ',
+          'No Registrado': '-',
+        };
+        row[dayHeader] = statusAbbrev[currentStatus] || currentStatus;
+      });
+
+      // Agregar columna de % Ausencias
+      const absencePercentage = calculateAbsencePercentage(employee.dni);
+      row['% Ausencias'] = `${absencePercentage.toFixed(1)}%`;
+
+      return row;
+    });
+
+    // Crear workbook y worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Asistencias');
+
+    // Ajustar ancho de columnas
+    const colWidths = [
+      { wch: 35 }, // Apellidos y Nombres
+      { wch: 12 }, // DNI
+      ...workingDays.map(() => ({ wch: 8 })), // Días
+      { wch: 12 }, // % Ausencias
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Generar nombre del archivo con fecha
+    const dateRange = workingDays.length > 0
+      ? `${format(workingDays[0], 'dd-MM-yyyy')}_${format(workingDays[workingDays.length - 1], 'dd-MM-yyyy')}`
+      : format(new Date(), 'dd-MM-yyyy');
+    const fileName = `Asistencias_${dateRange}.xlsx`;
+
+    // Descargar archivo
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Matriz de Registros</CardTitle>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <CardTitle>Matriz de Registros</CardTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            {pendingChangesCount > 0 && (
+              <Badge variant="secondary" className="mr-2">
+                {pendingChangesCount} cambio{pendingChangesCount > 1 ? 's' : ''} pendiente{pendingChangesCount > 1 ? 's' : ''}
+              </Badge>
+            )}
+            <Button variant="outline" onClick={handleExportExcel} disabled={sortedEmployees.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Excel
+            </Button>
+            <Button onClick={onSave} disabled={isSaving || pendingChangesCount === 0}>
+              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div className="space-y-1">
             <Label htmlFor="matrix-name-filter">Apellidos y Nombres</Label>
@@ -166,7 +277,7 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
                     Empleado
                   </TableHead>
                   {workingDays.map((day) => (
-                    <TableHead key={day.toISOString()} className="text-center min-w-[60px]">
+                    <TableHead key={day.toISOString()} className="text-center min-w-[70px]">
                       <div className="flex flex-col items-center">
                         <span className="text-xs capitalize">{format(day, 'EEE', { locale: es })}</span>
                         <span>{format(day, 'd')}</span>
@@ -204,7 +315,7 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
                             <TooltipProvider>
                               <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
-                                  <button className="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0">
+                                  <button type="button" className="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0">
                                     <Info className="h-4 w-4 text-muted-foreground hover:text-primary" />
                                   </button>
                                 </TooltipTrigger>
@@ -223,19 +334,62 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
                         </TableCell>
                         {workingDays.map((day) => {
                           const dateStr = format(day, 'yyyy-MM-dd');
-                          const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+                          const originalStatus = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+                          const currentStatus = pendingChanges[employee.dni]?.[dateStr] || originalStatus;
+                          const hasChange = pendingChanges[employee.dni]?.[dateStr] !== undefined;
+
                           return (
-                            <TableCell key={dateStr} className={cn('text-center p-2', getStatusColor(status))}>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex justify-center">{getStatusIcon(status)}</div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{statusLabels[status] || status}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                            <TableCell
+                              key={dateStr}
+                              className={cn(
+                                'text-center p-1',
+                                getStatusColor(currentStatus),
+                                hasChange && 'ring-2 ring-primary ring-inset'
+                              )}
+                            >
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="w-full h-full flex justify-center items-center p-2 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex justify-center">
+                                            {getStatusIcon(currentStatus)}
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>{statusLabels[currentStatus] || currentStatus}</p>
+                                          {hasChange && <p className="text-xs text-primary">Cambio pendiente</p>}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-48 p-2" align="center">
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground mb-2 text-center">
+                                      {format(day, 'EEEE d MMM', { locale: es })}
+                                    </p>
+                                    {STATUS_OPTIONS.map((option) => (
+                                      <button
+                                        key={option.value}
+                                        onClick={() => handleStatusSelect(employee.dni, dateStr, option.value)}
+                                        className={cn(
+                                          'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+                                          currentStatus === option.value
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'hover:bg-muted'
+                                        )}
+                                      >
+                                        <span className={currentStatus === option.value ? 'text-primary-foreground' : option.color}>
+                                          {option.icon}
+                                        </span>
+                                        {option.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             </TableCell>
                           );
                         })}
@@ -317,6 +471,10 @@ export function AttendanceMatrixTable({ employees, attendanceMatrix, workingDays
             <span className="text-red-600">&gt;20%</span>
           </div>
         </div>
+
+        <p className="text-xs text-muted-foreground mt-4">
+          💡 Haz clic en cualquier celda para cambiar el estado. Los cambios se guardan en caché hasta que presiones "Guardar Cambios".
+        </p>
       </CardContent>
     </Card>
   );
