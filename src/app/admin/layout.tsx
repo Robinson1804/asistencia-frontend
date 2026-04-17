@@ -6,11 +6,22 @@ import { useEffect } from 'react';
 import {
   Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem,
   SidebarMenuButton, SidebarProvider, SidebarInset, SidebarTrigger, SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Home, Users, Briefcase, Building, LogOut, BarChart } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+
+function FloatingTrigger() {
+  const { open } = useSidebar();
+  if (open) return null;
+  return (
+    <div className="fixed top-3 left-3 z-50">
+      <SidebarTrigger />
+    </div>
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuthContext();
@@ -86,7 +97,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Button>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset>
+        <FloatingTrigger />
+        {children}
+      </SidebarInset>
     </SidebarProvider>
   );
 }
