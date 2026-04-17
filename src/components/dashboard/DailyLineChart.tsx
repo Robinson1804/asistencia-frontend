@@ -18,7 +18,7 @@ const COLORS = {
   Presentes: 'hsl(var(--color-ingreso))',
   Tardanzas: 'hsl(var(--color-ingreso-tarde))',
   'Faltas Injustificadas': 'hsl(var(--color-ausencia))',
-  'Faltas Justificadas': 'hsl(142 76% 36%)',
+  'Faltas Justificadas': 'hsl(199 89% 48%)', // Celeste
 };
 
 export function DailyLineChart({ data, title }: DailyLineChartProps) {

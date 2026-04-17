@@ -17,11 +17,13 @@ const COLORS = {
   Presentes: 'hsl(var(--color-ingreso))',
   Tardanzas: 'hsl(var(--color-ingreso-tarde))',
   'Faltas Injustificadas': 'hsl(var(--color-ausencia))',
-  'Faltas Justificadas': 'hsl(142 76% 36%)',
+  'Faltas Justificadas': 'hsl(199 89% 48%)', // Celeste
 };
 
-const CustomXAxisTick = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
-  const maxCharsPerLine = 15;
+const CustomXAxisTick = ({ x, y, payload, totalItems }: { x: number; y: number; payload: { value: string }; totalItems?: number }) => {
+  // Ajustar caracteres por línea según cantidad de items
+  const maxCharsPerLine = totalItems && totalItems > 6 ? 10 : 12;
+  const fontSize = totalItems && totalItems > 6 ? 9 : 10;
   const text = payload.value;
 
   const words = text.split(' ');
@@ -33,22 +35,28 @@ const CustomXAxisTick = ({ x, y, payload }: { x: number; y: number; payload: { v
       currentLine = (currentLine + ' ' + word).trim();
     } else {
       if (currentLine) lines.push(currentLine);
-      currentLine = word;
+      currentLine = word.length > maxCharsPerLine ? word.substring(0, maxCharsPerLine) + '...' : word;
     }
   });
   if (currentLine) lines.push(currentLine);
 
+  // Limitar a máximo 3 líneas
+  const displayLines = lines.slice(0, 3);
+  if (lines.length > 3) {
+    displayLines[2] = displayLines[2].substring(0, displayLines[2].length - 3) + '...';
+  }
+
   return (
     <g transform={`translate(${x},${y})`}>
-      {lines.map((line, index) => (
+      {displayLines.map((line, index) => (
         <text
           key={index}
           x={0}
-          y={index * 12}
-          dy={12}
+          y={index * 11}
+          dy={10}
           textAnchor="middle"
           fill="currentColor"
-          fontSize={10}
+          fontSize={fontSize}
         >
           {line}
         </text>
@@ -60,7 +68,7 @@ const CustomXAxisTick = ({ x, y, payload }: { x: number; y: number; payload: { v
 export function DivisionGroupedChart({ data, title }: DivisionGroupedChartProps) {
   if (!data || data.length === 0) {
     return (
-      <Card>
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="text-base font-semibold">{title}</CardTitle>
         </CardHeader>
@@ -71,38 +79,32 @@ export function DivisionGroupedChart({ data, title }: DivisionGroupedChartProps)
     );
   }
 
-  const maxLines = Math.max(...data.map(d => {
-    const words = d.name.split(' ');
-    let lines = 1;
-    let currentLine = '';
-    words.forEach((word) => {
-      if ((currentLine + ' ' + word).trim().length <= 15) {
-        currentLine = (currentLine + ' ' + word).trim();
-      } else {
-        if (currentLine) lines++;
-        currentLine = word;
-      }
-    });
-    return lines;
-  }));
-
-  const bottomMargin = 20 + (maxLines * 12);
+  const totalItems = data.length;
+  const bottomMargin = totalItems > 6 ? 50 : 45;
+  // Calcular altura dinámica basada en cantidad de divisiones
+  const chartHeight = Math.max(350, 280 + (totalItems * 10));
+  // Calcular gap entre grupos de barras
+  const barCategoryGap = totalItems > 6 ? '15%' : '20%';
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="text-base font-semibold">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={350 + bottomMargin - 60}>
-          <BarChart data={data} margin={{ left: 10, right: 10, top: 10, bottom: bottomMargin }}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <BarChart
+            data={data}
+            margin={{ left: 10, right: 10, top: 10, bottom: bottomMargin }}
+            barCategoryGap={barCategoryGap}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis
               dataKey="name"
               tickLine={false}
               axisLine={false}
               interval={0}
-              tick={CustomXAxisTick}
+              tick={(props) => <CustomXAxisTick {...props} totalItems={totalItems} />}
               height={bottomMargin}
             />
             <YAxis
@@ -112,6 +114,7 @@ export function DivisionGroupedChart({ data, title }: DivisionGroupedChartProps)
               tickLine={false}
               axisLine={false}
               tick={{ fontSize: 11 }}
+              width={40}
             />
             <Tooltip
               cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
@@ -119,10 +122,10 @@ export function DivisionGroupedChart({ data, title }: DivisionGroupedChartProps)
               formatter={(value: number) => `${value.toFixed(1)}%`}
             />
             <Legend wrapperStyle={{ paddingTop: 10 }} />
-            <Bar dataKey="Presentes" fill={COLORS.Presentes} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Tardanzas" fill={COLORS.Tardanzas} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Faltas Injustificadas" fill={COLORS['Faltas Injustificadas']} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Faltas Justificadas" fill={COLORS['Faltas Justificadas']} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Presentes" fill={COLORS.Presentes} radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="Tardanzas" fill={COLORS.Tardanzas} radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="Faltas Injustificadas" fill={COLORS['Faltas Injustificadas']} radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="Faltas Justificadas" fill={COLORS['Faltas Justificadas']} radius={[4, 4, 0, 0]} maxBarSize={40} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

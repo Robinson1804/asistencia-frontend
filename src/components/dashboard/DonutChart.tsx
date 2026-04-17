@@ -11,11 +11,11 @@ interface DonutChartProps {
 export function DonutChart({ data, title, total }: DonutChartProps) {
   if (total === 0) {
     return (
-      <Card>
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="text-base font-semibold">{title}</CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-center h-[300px]">
+        <CardContent className="flex items-center justify-center h-[350px]">
           <p className="text-muted-foreground">No hay datos para mostrar.</p>
         </CardContent>
       </Card>
@@ -23,12 +23,12 @@ export function DonutChart({ data, title, total }: DonutChartProps) {
   }
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="text-base font-semibold">{title}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+      <CardContent className="flex flex-col items-center justify-center">
+        <ResponsiveContainer width="100%" height={320}>
           <PieChart>
             <Tooltip
               contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
@@ -39,9 +39,9 @@ export function DonutChart({ data, title, total }: DonutChartProps) {
               dataKey="value"
               nameKey="name"
               cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={90}
+              cy="45%"
+              innerRadius={70}
+              outerRadius={110}
               labelLine={false}
               label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
                 if (percent === 0) return null;
@@ -49,7 +49,7 @@ export function DonutChart({ data, title, total }: DonutChartProps) {
                 const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
                 const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
                 return (
-                  <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-xs font-bold">
+                  <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-sm font-bold">
                     {`${(percent * 100).toFixed(0)}%`}
                   </text>
                 );
@@ -60,11 +60,11 @@ export function DonutChart({ data, title, total }: DonutChartProps) {
               ))}
             </Pie>
             {/* Center text showing total */}
-            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-              <tspan x="50%" dy="-0.5em" className="text-2xl font-bold fill-foreground">{total}</tspan>
+            <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle">
+              <tspan x="50%" dy="-0.5em" className="text-3xl font-bold fill-foreground">{total}</tspan>
               <tspan x="50%" dy="1.5em" className="text-xs fill-muted-foreground">Total</tspan>
             </text>
-            <Legend iconType="circle" />
+            <Legend iconType="circle" wrapperStyle={{ paddingTop: 20 }} />
           </PieChart>
         </ResponsiveContainer>
       </CardContent>

@@ -1,97 +1,42 @@
-
 "use client";
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuthContext } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const auth = useAuth();
-  const firestore = useFirestore();
+  const { login } = useAuthContext();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!auth || !firestore) {
-        toast({
-            variant: "destructive",
-            title: "Error de inicialización",
-            description: "Los servicios de autenticación o base de datos no están disponibles.",
-        });
-        return;
-    }
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      let userData;
-      let role;
-
-      if (userDocSnap.exists()) {
-        userData = userDocSnap.data();
-        role = userData.role;
-      } else {
-        // El documento del usuario no existe, así que lo creamos.
-        console.warn(`User document for ${user.uid} not found. Creating it.`);
-        
-        // Asignamos rol 'admin' si el email es el de admin, si no, 'registrador'.
-        const newRole = email === 'admin@inei.gob.pe' ? 'admin' : 'registrador';
-        
-        const newUserPayload = {
-          email: user.email,
-          role: newRole,
-          createdAt: serverTimestamp(),
-        };
-        
-        await setDoc(userDocRef, newUserPayload);
-        
-        userData = newUserPayload;
-        role = newRole;
-
-        toast({
-            title: "Perfil creado",
-            description: "Hemos creado tu perfil de usuario automáticamente."
-        });
-      }
-
+      const user = await login(email, password);
       toast({
         title: "Inicio de sesión exitoso",
-        description: `Bienvenido, ${userData.email}. Redirigiendo...`,
+        description: `Bienvenido, ${user.email}.`,
       });
-
-      if (role === 'admin') {
+      if (user.role === 'admin') {
         router.push('/admin');
       } else {
         router.push('/');
       }
-
     } catch (error: any) {
-      console.error("Failed to sign in", error);
-      let description = "Las credenciales son incorrectas o el usuario no tiene un perfil asignado.";
-      if (error.code === 'auth/invalid-credential') {
-        description = "Correo electrónico o contraseña incorrectos."
-      }
-
       toast({
         variant: "destructive",
         title: "Error al iniciar sesión",
-        description: description,
+        description: error.message || "Credenciales incorrectas.",
       });
       setIsLoading(false);
     }
@@ -122,10 +67,10 @@ export default function LoginPage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
+              <Input
+                id="password"
+                type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -143,4 +88,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

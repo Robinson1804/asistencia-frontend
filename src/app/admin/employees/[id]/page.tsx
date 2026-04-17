@@ -1,13 +1,11 @@
-
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, collection } from 'firebase/firestore';
-import type { Employee, Proyecto, Sede, Modalidad, TipoContrato, Dtt, Coordinador, Division, ScrumMaster, RelacionDivision } from '@/types';
+import { api, apiFetch } from '@/lib/api';
+import { useApiData } from '@/hooks/use-api-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,466 +27,288 @@ const employeeSchema = z.object({
   modalidadId: z.string().optional(),
   tipoContratoId: z.string().optional(),
   dttId: z.string().optional(),
-  coordinadorId: z.string().optional(),
-  divisionId: z.string().optional(),
   scrumMasterId: z.string().optional(),
 });
 
 type EmployeeFormData = z.infer<typeof employeeSchema>;
-
 
 export default function EmployeeFormPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
   const isNew = id === 'new';
-
-  const firestore = useFirestore();
   const { toast } = useToast();
+
+  const [loadingEmployee, setLoadingEmployee] = useState(!isNew);
   const [formInitialized, setFormInitialized] = useState(false);
+  const [resolvedCoordinador, setResolvedCoordinador] = useState('');
+  const [resolvedDivision, setResolvedDivision] = useState('');
 
-  const employeeRef = useMemoFirebase(() => {
-    if (!firestore || isNew) return null;
-    return doc(firestore, 'empleados', id);
-  }, [firestore, id, isNew]);
-
-  const { data: employeeData, isLoading: loadingEmployee } = useDoc<Employee>(employeeRef);
-
-  const { data: projectsData, isLoading: loadingProjects } = useCollection<Proyecto>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'proyectos') : null, [firestore])
-  );
-  const { data: sedesData, isLoading: loadingSedes } = useCollection<Sede>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'sedes') : null, [firestore])
-  );
-  const { data: modalidadesData, isLoading: loadingModalidades } = useCollection<Modalidad>(
-     useMemoFirebase(() => firestore ? collection(firestore, 'modalidades') : null, [firestore])
-  );
-  const { data: tiposContratoData, isLoading: loadingTiposContrato } = useCollection<TipoContrato>(
-     useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
-  );
-  const { data: dttsData, isLoading: loadingDtts } = useCollection<Dtt>(
-     useMemoFirebase(() => firestore ? collection(firestore, 'dtt') : null, [firestore])
-  );
-  const { data: coordinadoresData, isLoading: loadingCoordinadores } = useCollection<Coordinador>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'coordinadoresDivision') : null, [firestore])
-  );
-  const { data: divisionesData, isLoading: loadingDivisiones } = useCollection<Division>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'divisiones') : null, [firestore])
-  );
-  const { data: scrumMastersData, isLoading: loadingScrumMasters } = useCollection<ScrumMaster>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'scrumMasters') : null, [firestore])
-  );
-  const { data: relacionesData, isLoading: loadingRelaciones } = useCollection<RelacionDivision>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'relacionesDivision') : null, [firestore])
-  );
-
+  const { data: proyectosData } = useApiData<any>('/api/proyectos');
+  const { data: sedesData } = useApiData<any>('/api/sedes');
+  const { data: modalidadesData } = useApiData<any>('/api/modalidades');
+  const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato');
+  const { data: dttsData } = useApiData<any>('/api/dtt');
+  const { data: scrumMastersData } = useApiData<any>('/api/scrum-masters');
+  const { data: relacionesData } = useApiData<any>('/api/relaciones-division');
 
   const { control, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
-      apellidosNombres: '',
-      dni: '',
-      orden: '',
-      email: '',
-      telefono: '',
-      activo: true,
-      proyectoId: undefined,
-      sedeId: undefined,
-      modalidadId: undefined,
-      tipoContratoId: undefined,
-      dttId: undefined,
-      coordinadorId: undefined,
-      divisionId: undefined,
+      apellidosNombres: '', dni: '', orden: '', email: '', telefono: '',
+      activo: true, proyectoId: undefined, sedeId: undefined,
+      modalidadId: undefined, tipoContratoId: undefined, dttId: undefined,
       scrumMasterId: undefined,
     }
   });
 
   const scrumMasterId = watch('scrumMasterId');
 
-  // Reset form initialization when employee ID changes
   useEffect(() => {
-    console.log('🔄 Employee ID changed to:', id);
-    setFormInitialized(false);
-  }, [id]);
+    if (!isNew) {
+      api.getEmpleado(id)
+        .then((emp: any) => {
+          if (!emp) return;
+          // Find scrumMasterId from relacion_division_id
+          const loadForm = (smId?: string) => {
+            reset({
+              apellidosNombres: emp.apellidos_nombres || '',
+              dni: emp.dni || '',
+              orden: emp.orden || '',
+              email: emp.email || '',
+              telefono: emp.telefono || '',
+              activo: emp.activo ?? true,
+              proyectoId: emp.proyecto_id || undefined,
+              sedeId: emp.sede_id || undefined,
+              modalidadId: emp.modalidad_id || undefined,
+              tipoContratoId: emp.tipo_contrato_id || undefined,
+              dttId: emp.dtt_id || undefined,
+              scrumMasterId: smId || undefined,
+            });
+            setFormInitialized(true);
+          };
 
-  // Only auto-fill coordinador and division after form is initialized
-  // to prevent overwriting loaded values during initial form population
-  useEffect(() => {
-    // Skip this effect during initial form load
-    if (!formInitialized) return;
-
-    if (scrumMasterId && relacionesData) {
-      if (scrumMasterId === 'none') {
-        setValue('coordinadorId', undefined);
-        setValue('divisionId', undefined);
-        return;
-      }
-      const relacion = relacionesData.find(r => r.scrumMasterId === scrumMasterId);
-      if (relacion) {
-        setValue('coordinadorId', relacion.coordinadorId, { shouldValidate: true });
-        setValue('divisionId', relacion.divisionId, { shouldValidate: true });
-      }
-    } else if (!scrumMasterId) {
-        setValue('coordinadorId', undefined);
-        setValue('divisionId', undefined);
-    }
-  }, [scrumMasterId, setValue, relacionesData, formInitialized]);
-
-
-  // Reset form immediately when employee data loads
-  useEffect(() => {
-    if (employeeData && !formInitialized) {
-      console.log('📝 Employee data loaded:', employeeData);
-      console.log('🔑 IDs encontrados:', {
-        proyectoId: employeeData.proyectoId,
-        sedeId: employeeData.sedeId,
-        modalidadId: employeeData.modalidadId,
-        tipoContratoId: employeeData.tipoContratoId,
-        dttId: employeeData.dttId,
-        coordinadorId: employeeData.coordinadorId,
-        divisionId: employeeData.divisionId,
-        scrumMasterId: employeeData.scrumMasterId,
-      });
-
-      const formData = {
-        apellidosNombres: employeeData.apellidosNombres || '',
-        dni: employeeData.dni || '',
-        orden: employeeData.orden || '',
-        email: employeeData.email || '',
-        telefono: employeeData.telefono || '',
-        activo: employeeData.activo ?? true,
-        proyectoId: employeeData.proyectoId || undefined,
-        sedeId: employeeData.sedeId || undefined,
-        modalidadId: employeeData.modalidadId || undefined,
-        tipoContratoId: employeeData.tipoContratoId || undefined,
-        dttId: employeeData.dttId || undefined,
-        coordinadorId: employeeData.coordinadorId || undefined,
-        divisionId: employeeData.divisionId || undefined,
-        scrumMasterId: employeeData.scrumMasterId || undefined,
-      };
-
-      console.log('✅ Reseteando formulario con:', formData);
-
-      // Reset with keepDefaultValues: false to ensure complete reset
-      reset(formData, { keepDefaultValues: false });
-
-      // Also set values individually to ensure they're applied
-      setTimeout(() => {
-        if (employeeData.proyectoId) setValue('proyectoId', employeeData.proyectoId);
-        if (employeeData.sedeId) setValue('sedeId', employeeData.sedeId);
-        if (employeeData.modalidadId) setValue('modalidadId', employeeData.modalidadId);
-        if (employeeData.tipoContratoId) setValue('tipoContratoId', employeeData.tipoContratoId);
-        if (employeeData.dttId) setValue('dttId', employeeData.dttId);
-        if (employeeData.scrumMasterId) setValue('scrumMasterId', employeeData.scrumMasterId);
-        if (employeeData.coordinadorId) setValue('coordinadorId', employeeData.coordinadorId);
-        if (employeeData.divisionId) setValue('divisionId', employeeData.divisionId);
-        console.log('✅ Valores individuales aplicados');
-      }, 100);
-
+          if (emp.relacion_division_id && relacionesData) {
+            const rel = relacionesData.find((r: any) => r.id === emp.relacion_division_id);
+            if (rel) {
+              setResolvedCoordinador(rel.nombre_coordinador || '');
+              setResolvedDivision(rel.nombre_division || '');
+              loadForm(rel.scrum_master_id);
+            } else {
+              loadForm();
+            }
+          } else {
+            loadForm();
+          }
+        })
+        .catch(() => toast({ variant: 'destructive', title: 'Error al cargar empleado' }))
+        .finally(() => setLoadingEmployee(false));
+    } else {
       setFormInitialized(true);
     }
-  }, [employeeData, formInitialized, reset, setValue]);
+  }, [id, isNew, relacionesData]);
 
+  // Auto-fill coordinador/division display when scrumMasterId changes (after init)
+  useEffect(() => {
+    if (!formInitialized || !relacionesData) return;
+    if (!scrumMasterId || scrumMasterId === 'none') {
+      setResolvedCoordinador('');
+      setResolvedDivision('');
+      return;
+    }
+    const rel = relacionesData.find((r: any) => r.scrum_master_id === scrumMasterId);
+    if (rel) {
+      setResolvedCoordinador(rel.nombre_coordinador || '');
+      setResolvedDivision(rel.nombre_division || '');
+    }
+  }, [scrumMasterId, relacionesData, formInitialized]);
 
   const onSubmit = async (data: EmployeeFormData) => {
-    if (!firestore) return;
+    const smId = data.scrumMasterId && data.scrumMasterId !== 'none' ? data.scrumMasterId : null;
+    const relacion = smId && relacionesData
+      ? relacionesData.find((r: any) => r.scrum_master_id === smId)
+      : null;
 
-    console.log('💾 Guardando empleado con datos:', data);
-
-    const project = projectsData?.find(p => p.id === data.proyectoId);
-    const sede = sedesData?.find(s => s.id === data.sedeId);
-    const modalidad = modalidadesData?.find(m => m.id === data.modalidadId);
-    const tipoContrato = tiposContratoData?.find(t => t.id === data.tipoContratoId);
-    const dtt = dttsData?.find(d => d.id === data.dttId);
-    const coordinador = coordinadoresData?.find(c => c.id === data.coordinadorId);
-    const division = divisionesData?.find(d => d.id === data.divisionId);
-    const scrumMaster = scrumMastersData?.find(s => s.id === data.scrumMasterId);
-
-    console.log('🔍 Datos encontrados:', {
-      project,
-      sede,
-      modalidad,
-      tipoContrato,
-      dtt,
-      coordinador,
-      division,
-      scrumMaster
-    });
-
-    const employeePayload = {
-      apellidosNombres: data.apellidosNombres,
+    const payload: any = {
+      apellidos_nombres: data.apellidosNombres,
       dni: data.dni,
-      orden: data.orden || '',
-      email: data.email || '',
-      telefono: data.telefono || '',
+      orden: data.orden || null,
+      email: data.email || null,
+      telefono: data.telefono || null,
       activo: data.activo,
-      // Nested objects
-      proyecto: project ? { nombre: project.nombreProyecto, codigo: project.codigoProyecto, descripcion: project.descripcion } : null,
-      sede: sede ? { nombre: sede.nombreSede, direccion: sede.direccion } : null,
-      modalidad: modalidad ? { nombre: modalidad.nombreModalidad, descripcion: modalidad.descripcion } : null,
-      tipoContrato: tipoContrato ? { tipo: tipoContrato.tipoContrato, descripcion: tipoContrato.descripcion } : null,
-      dtt: dtt ? { nombre: dtt.nombreDTT, codigo: dtt.codigoDTT, descripcion: dtt.descripcion } : null,
-      coordinador: coordinador ? { nombre: coordinador.nombreCoordinador } : null,
-      division: division ? { nombre: division.nombreDivision } : null,
-      scrumMaster: scrumMaster ? { nombre: scrumMaster.nombreScrumMaster } : null,
-      // Foreign keys
-      proyectoId: data.proyectoId || null,
-      sedeId: data.sedeId || null,
-      modalidadId: data.modalidadId || null,
-      tipoContratoId: data.tipoContratoId || null,
-      dttId: data.dttId || null,
-      coordinadorId: data.coordinadorId || null,
-      divisionId: data.divisionId || null,
-      scrumMasterId: data.scrumMasterId === 'none' ? null : (data.scrumMasterId || null),
-      updatedAt: new Date(),
-      ...(isNew && { createdAt: new Date() })
+      proyecto_id: data.proyectoId && data.proyectoId !== 'none' ? data.proyectoId : null,
+      sede_id: data.sedeId && data.sedeId !== 'none' ? data.sedeId : null,
+      modalidad_id: data.modalidadId && data.modalidadId !== 'none' ? data.modalidadId : null,
+      tipo_contrato_id: data.tipoContratoId && data.tipoContratoId !== 'none' ? data.tipoContratoId : null,
+      dtt_id: data.dttId && data.dttId !== 'none' ? data.dttId : null,
+      relacion_division_id: relacion ? relacion.id : null,
     };
 
-    console.log('📦 Payload a guardar:', employeePayload);
-
     try {
-      const docRef = doc(firestore, 'empleados', data.dni);
-      console.log('🚀 Guardando en Firestore...');
-      await setDoc(docRef, employeePayload, { merge: true });
-      console.log('✅ Guardado exitoso!');
-      toast({
-        title: `Empleado ${isNew ? 'creado' : 'actualizado'}`,
-        description: `${data.apellidosNombres} ha sido guardado exitosamente.`,
-      });
-      // Use router.back() to preserve filters instead of router.push()
       if (isNew) {
-        router.push('/admin/employees');
+        await api.createEmpleado(payload);
       } else {
-        router.back();
+        await api.updateEmpleado(id, payload);
       }
+      toast({ title: `Empleado ${isNew ? 'creado' : 'actualizado'}`, description: `${data.apellidosNombres} guardado exitosamente.` });
+      if (isNew) router.push('/admin/employees');
+      else router.back();
     } catch (error: any) {
-      console.error("❌ Error completo:", error);
-      console.error("Código de error:", error?.code);
-      console.error("Mensaje:", error?.message);
-      toast({
-        variant: 'destructive',
-        title: 'Error al guardar',
-        description: error?.message || 'Hubo un problema al guardar el empleado.',
-      });
+      toast({ variant: 'destructive', title: 'Error al guardar', description: error?.message || 'Hubo un problema.' });
     }
   };
 
-  const isLoadingData = loadingEmployee || loadingProjects || loadingSedes || loadingModalidades || loadingTiposContrato || loadingDtts || loadingCoordinadores || loadingDivisiones || loadingScrumMasters || loadingRelaciones;
-
-  if (isLoadingData) {
+  if (loadingEmployee) {
     return <div className="flex min-h-screen items-center justify-center"><p>Cargando datos...</p></div>;
-  }
-  
-  if (!isNew && !employeeData) {
-      return <div className="flex min-h-screen items-center justify-center"><p>Empleado no encontrado.</p></div>
   }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
-       <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+      <Button variant="ghost" onClick={() => router.back()} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Volver a la lista
       </Button>
 
       <Card className="max-w-4xl mx-auto">
-         <CardHeader>
+        <CardHeader>
           <CardTitle>{isNew ? 'Añadir Nuevo Empleado' : 'Editar Empleado'}</CardTitle>
         </CardHeader>
-        <form key={`employee-form-${id}`} onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="apellidosNombres">Apellidos y Nombres</Label>
-                <Controller
-                  name="apellidosNombres"
-                  control={control}
-                  render={({ field }) => <Input id="apellidosNombres" {...field} />}
-                />
-                {errors.apellidosNombres && <p className="text-sm text-destructive">{errors.apellidosNombres.message}</p>}
-              </div>
-
-             <div className="space-y-2">
-                <Label htmlFor="dni">DNI</Label>
-                <Controller
-                  name="dni"
-                  control={control}
-                  render={({ field }) => <Input id="dni" {...field} disabled={!isNew} />}
-                />
-                {errors.dni && <p className="text-sm text-destructive">{errors.dni.message}</p>}
-              </div>
-
-               <div className="space-y-2">
-                <Label htmlFor="orden">Orden</Label>
-                <Controller
-                  name="orden"
-                  control={control}
-                  render={({ field }) => <Input id="orden" {...field} />}
-                />
-              </div>
-
-               <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico</Label>
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => <Input id="email" type="email" {...field} />}
-                />
-                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-              </div>
-
-               <div className="space-y-2">
-                <Label htmlFor="telefono">Teléfono</Label>
-                <Controller
-                  name="telefono"
-                  control={control}
-                  render={({ field }) => <Input id="telefono" {...field} />}
-                />
-              </div>
-              
             <div className="space-y-2">
-                <Label htmlFor="dttId">DTT</Label>
-                <Controller
-                    name="dttId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar DTT..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin DTT</SelectItem>
-                                {(dttsData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDTT}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
-            </div>
-            
-            <div className="space-y-2">
-                <Label htmlFor="proyectoId">Proyecto</Label>
-                <Controller
-                    name="proyectoId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Proyecto</SelectItem>
-                                {(projectsData || []).map(p => <SelectItem key={p.id} value={p.id}>{p.codigoProyecto} - {p.nombreProyecto}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
+              <Label htmlFor="apellidosNombres">Apellidos y Nombres</Label>
+              <Controller name="apellidosNombres" control={control}
+                render={({ field }) => <Input id="apellidosNombres" {...field} />} />
+              {errors.apellidosNombres && <p className="text-sm text-destructive">{errors.apellidosNombres.message}</p>}
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="sedeId">Sede</Label>
-                 <Controller
-                    name="sedeId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Sede</SelectItem>
-                                {(sedesData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreSede}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
-            </div>
-
-             <div className="space-y-2">
-                <Label htmlFor="modalidadId">Modalidad</Label>
-                 <Controller
-                    name="modalidadId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar modalidad..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Modalidad</SelectItem>
-                                {(modalidadesData || []).map(m => <SelectItem key={m.id} value={m.id}>{m.nombreModalidad}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
+              <Label htmlFor="dni">DNI</Label>
+              <Controller name="dni" control={control}
+                render={({ field }) => <Input id="dni" {...field} disabled={!isNew} />} />
+              {errors.dni && <p className="text-sm text-destructive">{errors.dni.message}</p>}
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="tipoContratoId">Tipo de Contrato</Label>
-                 <Controller
-                    name="tipoContratoId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Tipo de Contrato</SelectItem>
-                                {(tiposContratoData || []).map(t => <SelectItem key={t.id} value={t.id}>{t.tipoContrato}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
-            </div>
-
-             <div className="space-y-2">
-                <Label htmlFor="scrumMasterId">Scrum Master</Label>
-                 <Controller
-                    name="scrumMasterId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Scrum Master</SelectItem>
-                                {(scrumMastersData || []).map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
+              <Label htmlFor="orden">Orden</Label>
+              <Controller name="orden" control={control}
+                render={({ field }) => <Input id="orden" {...field} />} />
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="coordinadorId">Coordinador</Label>
-                 <Controller
-                    name="coordinadorId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
-                            <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
-                            <SelectContent>
-                                {(coordinadoresData || []).map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
+              <Label htmlFor="email">Correo Electrónico</Label>
+              <Controller name="email" control={control}
+                render={({ field }) => <Input id="email" type="email" {...field} />} />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="divisionId">División</Label>
-                 <Controller
-                    name="divisionId"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value ?? ''} disabled>
-                            <SelectTrigger><SelectValue placeholder="Se asigna automáticamente..." /></SelectTrigger>
-                            <SelectContent>
-                                {(divisionesData || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
-                />
+              <Label htmlFor="telefono">Teléfono</Label>
+              <Controller name="telefono" control={control}
+                render={({ field }) => <Input id="telefono" {...field} />} />
             </div>
 
-              <div className="flex items-center space-x-2">
-                <Controller
-                    name="activo"
-                    control={control}
-                    render={({ field }) => <Switch id="activo" checked={field.value} onCheckedChange={field.onChange} />}
-                />
-                <Label htmlFor="activo">Activo</Label>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="dttId">DTT</Label>
+              <Controller name="dttId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar DTT..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin DTT</SelectItem>
+                      {(dttsData || []).map((d: any) => <SelectItem key={d.id} value={d.id}>{d.nombre_dtt}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )} />
+            </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="proyectoId">Proyecto</Label>
+              <Controller name="proyectoId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar proyecto..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin Proyecto</SelectItem>
+                      {(proyectosData || []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.codigo_proyecto} - {p.nombre_proyecto}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sedeId">Sede</Label>
+              <Controller name="sedeId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin Sede</SelectItem>
+                      {(sedesData || []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_sede}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="modalidadId">Modalidad</Label>
+              <Controller name="modalidadId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar modalidad..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin Modalidad</SelectItem>
+                      {(modalidadesData || []).map((m: any) => <SelectItem key={m.id} value={m.id}>{m.nombre_modalidad}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tipoContratoId">Tipo de Contrato</Label>
+              <Controller name="tipoContratoId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin Tipo de Contrato</SelectItem>
+                      {(tiposContratoData || []).map((t: any) => <SelectItem key={t.id} value={t.id}>{t.tipo_contrato}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="scrumMasterId">Scrum Master</Label>
+              <Controller name="scrumMasterId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar Scrum Master..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin Scrum Master</SelectItem>
+                      {(scrumMastersData || []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_scrum_master}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Coordinador</Label>
+              <Input value={resolvedCoordinador || 'Se asigna por Scrum Master'} disabled className="text-muted-foreground" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>División</Label>
+              <Input value={resolvedDivision || 'Se asigna por Scrum Master'} disabled className="text-muted-foreground" />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Controller name="activo" control={control}
+                render={({ field }) => <Switch id="activo" checked={field.value} onCheckedChange={field.onChange} />} />
+              <Label htmlFor="activo">Activo</Label>
+            </div>
           </CardContent>
-           <CardFooter>
+          <CardFooter>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
@@ -498,5 +318,3 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
-
-    

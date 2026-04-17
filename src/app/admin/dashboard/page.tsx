@@ -13,6 +13,8 @@ import { DivisionGroupedChart } from '@/components/dashboard/DivisionGroupedChar
 import { DonutChart } from '@/components/dashboard/DonutChart';
 import { AttendanceMatrixTable } from '@/components/dashboard/AttendanceMatrixTable';
 import { DailyLineChart } from '@/components/dashboard/DailyLineChart';
+import { TopDivisionsChart } from '@/components/dashboard/TopDivisionsChart';
+import { EmployeeRankingTable } from '@/components/dashboard/EmployeeRankingTable';
 
 import { Users, UserCheck, UserX, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -307,7 +309,7 @@ export default function DashboardPage() {
         };
 
         workingDays.forEach(day => {
-          const dateStr = day.toISOString().split('T')[0];
+          const dateStr = format(day, 'yyyy-MM-dd');
           employeesInDivision.forEach(employee => {
             const status = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
             switch (status) {
@@ -342,22 +344,147 @@ export default function DashboardPage() {
     }).filter(d => d.name !== 'N/A');
   }, [filteredEmployees, divisionsData, attendanceMatrix, workingDays]);
 
-  // Status distribution for donut chart
+  // Status distribution for donut chart (Faltas Justificadas se integran con Presentes)
   const statusDistribution = useMemo(() => {
     return [
-      { name: 'Presentes', value: stats.presentes, fill: 'hsl(var(--color-ingreso))' },
+      { name: 'Presentes', value: stats.presentes + stats.faltasJustificadas, fill: 'hsl(var(--color-ingreso))' },
       { name: 'Tardanzas', value: stats.tardanzas, fill: 'hsl(var(--color-ingreso-tarde))' },
       { name: 'Faltas Injustificadas', value: stats.faltasInjustificadas, fill: 'hsl(var(--color-ausencia))' },
-      { name: 'Faltas Justificadas', value: stats.faltasJustificadas, fill: 'hsl(142 76% 36%)' },
     ].filter(item => item.value > 0);
   }, [stats]);
+
+  // Top divisiones con más tardanzas
+  const topDivisionsTardanzas = useMemo(() => {
+    if (!divisionsData || !employeesData || workingDays.length === 0) return [];
+
+    const divisionTardanzas: Record<string, { name: string; tardanzas: number; totalPossible: number }> = {};
+
+    divisionsData.forEach(division => {
+      const employeesInDivision = employeesData.filter(e => e.activo && e.divisionId === division.id);
+      if (employeesInDivision.length === 0) return;
+
+      let tardanzas = 0;
+      const totalPossible = employeesInDivision.length * workingDays.length;
+
+      workingDays.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        employeesInDivision.forEach(employee => {
+          const status = attendanceMatrix[employee.dni]?.[dateStr];
+          if (status === 'Tardanza') tardanzas++;
+        });
+      });
+
+      divisionTardanzas[division.id] = {
+        name: division.nombreDivision,
+        tardanzas,
+        totalPossible
+      };
+    });
+
+    return Object.values(divisionTardanzas)
+      .map(d => ({
+        name: d.name,
+        value: d.tardanzas,
+        percentage: d.totalPossible > 0 ? (d.tardanzas / d.totalPossible) * 100 : 0
+      }))
+      .sort((a, b) => b.value - a.value)
+      .filter(d => d.value > 0);
+  }, [divisionsData, employeesData, attendanceMatrix, workingDays]);
+
+  // Top divisiones con más faltas
+  const topDivisionsFaltas = useMemo(() => {
+    if (!divisionsData || !employeesData || workingDays.length === 0) return [];
+
+    const divisionFaltas: Record<string, { name: string; faltas: number; totalPossible: number }> = {};
+
+    divisionsData.forEach(division => {
+      const employeesInDivision = employeesData.filter(e => e.activo && e.divisionId === division.id);
+      if (employeesInDivision.length === 0) return;
+
+      let faltas = 0;
+      const totalPossible = employeesInDivision.length * workingDays.length;
+
+      workingDays.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        employeesInDivision.forEach(employee => {
+          const status = attendanceMatrix[employee.dni]?.[dateStr];
+          if (status === 'Falta' || status === 'Falta Justificada') faltas++;
+        });
+      });
+
+      divisionFaltas[division.id] = {
+        name: division.nombreDivision,
+        faltas,
+        totalPossible
+      };
+    });
+
+    return Object.values(divisionFaltas)
+      .map(d => ({
+        name: d.name,
+        value: d.faltas,
+        percentage: d.totalPossible > 0 ? (d.faltas / d.totalPossible) * 100 : 0
+      }))
+      .sort((a, b) => b.value - a.value)
+      .filter(d => d.value > 0);
+  }, [divisionsData, employeesData, attendanceMatrix, workingDays]);
+
+  // Empleados con más tardanzas
+  const employeesTardanzas = useMemo(() => {
+    if (!filteredEmployees || workingDays.length === 0) return [];
+
+    const totalPossible = workingDays.length;
+
+    return filteredEmployees
+      .map(employee => {
+        let tardanzas = 0;
+        workingDays.forEach(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const status = attendanceMatrix[employee.dni]?.[dateStr];
+          if (status === 'Tardanza') tardanzas++;
+        });
+        return {
+          name: employee.apellidosNombres,
+          dni: employee.dni,
+          count: tardanzas,
+          percentage: totalPossible > 0 ? (tardanzas / totalPossible) * 100 : 0
+        };
+      })
+      .filter(e => e.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [filteredEmployees, attendanceMatrix, workingDays]);
+
+  // Empleados con más faltas
+  const employeesFaltas = useMemo(() => {
+    if (!filteredEmployees || workingDays.length === 0) return [];
+
+    const totalPossible = workingDays.length;
+
+    return filteredEmployees
+      .map(employee => {
+        let faltas = 0;
+        workingDays.forEach(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const status = attendanceMatrix[employee.dni]?.[dateStr];
+          if (status === 'Falta' || status === 'Falta Justificada') faltas++;
+        });
+        return {
+          name: employee.apellidosNombres,
+          dni: employee.dni,
+          count: faltas,
+          percentage: totalPossible > 0 ? (faltas / totalPossible) * 100 : 0
+        };
+      })
+      .filter(e => e.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [filteredEmployees, attendanceMatrix, workingDays]);
 
   // Daily line chart data
   const dailyLineData = useMemo(() => {
     if (workingDays.length === 0 || filteredEmployees.length === 0) return [];
 
     return workingDays.map(day => {
-      const dateStr = day.toISOString().split('T')[0];
+      const dateStr = format(day, 'yyyy-MM-dd');
       let presentes = 0, tardanzas = 0, faltas = 0, faltasJustificadas = 0;
 
       filteredEmployees.forEach(employee => {
@@ -450,24 +577,58 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Gráfico de distribución */}
-          <DonutChart
-            data={statusDistribution}
-            title="Distribución de Estados"
-            total={stats.totalRegistros}
-          />
-
-          {/* Gráfico de barras agrupadas por división */}
-          <DivisionGroupedChart
-            data={divisionGroupedData}
-            title="Distribución de Estados por División (%)"
-          />
+          {/* Gráficos de distribución lado a lado */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <DonutChart
+              data={statusDistribution}
+              title="Distribución de Estados"
+              total={stats.totalRegistros}
+            />
+            <div className="lg:col-span-2">
+              <DivisionGroupedChart
+                data={divisionGroupedData}
+                title="Distribución de Estados por División (%)"
+              />
+            </div>
+          </div>
 
           {/* Gráfico lineal diario */}
           <DailyLineChart
             data={dailyLineData}
             title="Registros Diarios por Estado"
           />
+
+          {/* Top Divisiones - Tardanzas y Faltas */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <TopDivisionsChart
+              data={topDivisionsTardanzas}
+              title="Top Divisiones con más Tardanzas"
+              color="hsl(var(--color-ingreso-tarde))"
+              valueLabel="Tardanzas"
+            />
+            <TopDivisionsChart
+              data={topDivisionsFaltas}
+              title="Top Divisiones con más Faltas"
+              color="hsl(var(--color-ausencia))"
+              valueLabel="Faltas"
+            />
+          </div>
+
+          {/* Ranking de Empleados - Tardanzas y Faltas */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <EmployeeRankingTable
+              data={employeesTardanzas}
+              title="Empleados con más Tardanzas"
+              countLabel="Tardanzas"
+              color="yellow"
+            />
+            <EmployeeRankingTable
+              data={employeesFaltas}
+              title="Empleados con más Faltas"
+              countLabel="Faltas"
+              color="red"
+            />
+          </div>
 
           {/* Matriz de Registros */}
           <AttendanceMatrixTable

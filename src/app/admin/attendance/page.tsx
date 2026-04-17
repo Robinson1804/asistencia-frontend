@@ -1,303 +1,158 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, Timestamp, writeBatch, doc } from 'firebase/firestore';
+import { useApiData } from '@/hooks/use-api-data';
+import { apiFetch } from '@/lib/api';
+import { format, startOfDay, eachDayOfInterval, getDay, startOfMonth, endOfMonth } from 'date-fns';
 import type { Employee, Division, Coordinador, ScrumMaster, Proyecto, TipoContrato, Sede, AttendanceStatus, AttendanceRecord } from '@/types';
-import { startOfDay, endOfDay, eachDayOfInterval, getDay, startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
-
 import { EditableAttendanceMatrix } from '@/components/attendance/EditableAttendanceMatrix';
 import { Filters } from '@/components/dashboard/Filters';
 import { useToast } from '@/hooks/use-toast';
 
-// Obtener el mes actual
 const now = new Date();
-const currentMonthStart = startOfMonth(now);
-const currentMonthEnd = endOfMonth(now);
-
 const initialFilters = {
-  dateRange: { from: currentMonthStart, to: currentMonthEnd } as { from: Date; to: Date } | undefined,
-  month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` as string,
-  division: 'all' as string,
-  coordinador: 'all' as string,
-  scrumMaster: 'all' as string,
-  proyecto: [] as string[],
-  tipoContrato: [] as string[],
-  sede: [] as string[],
+  dateRange: { from: startOfMonth(now), to: endOfMonth(now) } as { from: Date; to: Date } | undefined,
+  month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+  division: 'all', coordinador: 'all', scrumMaster: 'all',
+  proyecto: [] as string[], tipoContrato: [] as string[], sede: [] as string[],
 };
 
+function mapEmployee(row: any): Employee {
+  return {
+    ...row,
+    apellidosNombres: row.apellidos_nombres,
+    divisionId: row.division_id,
+    coordinadorId: row.coordinador_id,
+    scrumMasterId: row.scrum_master_id,
+    sedeId: row.sede_id,
+    proyectoId: row.proyecto_id,
+    tipoContratoId: row.tipo_contrato_id,
+  };
+}
+
 export default function AttendanceMatrixPage() {
-  const firestore = useFirestore();
   const { toast } = useToast();
   const [filters, setFilters] = useState(initialFilters);
   const [matrixFilters, setMatrixFilters] = useState({ name: '', dni: '' });
-
-  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Pending changes cache: { employeeDni: { dateStr: status } }
   const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, AttendanceStatus>>>({});
 
-  // Fetch all reference data
-  const { data: employeesData } = useCollection<Employee>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'empleados') : null, [firestore])
-  );
-  const { data: divisionsData } = useCollection<Division>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'divisiones') : null, [firestore])
-  );
-  const { data: coordinadoresData } = useCollection<Coordinador>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'coordinadoresDivision') : null, [firestore])
-  );
-  const { data: scrumMastersData } = useCollection<ScrumMaster>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'scrumMasters') : null, [firestore])
-  );
-  const { data: proyectosData } = useCollection<Proyecto>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'proyectos') : null, [firestore])
-  );
-  const { data: tiposContratoData } = useCollection<TipoContrato>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'tiposContrato') : null, [firestore])
-  );
-  const { data: sedesData } = useCollection<Sede>(
-    useMemoFirebase(() => firestore ? collection(firestore, 'sedes') : null, [firestore])
-  );
+  const { data: rawEmployees } = useApiData<any>('/api/empleados');
+  const { data: divisionsData } = useApiData<Division>('/api/divisiones');
+  const { data: coordinadoresData } = useApiData<Coordinador>('/api/coordinadores');
+  const { data: scrumMastersData } = useApiData<ScrumMaster>('/api/scrum-masters');
+  const { data: proyectosData } = useApiData<Proyecto>('/api/proyectos');
+  const { data: tiposContratoData } = useApiData<TipoContrato>('/api/tipos-contrato');
+  const { data: sedesData } = useApiData<Sede>('/api/sedes');
 
-  // Set default contract types when data loads
+  const employeesData = useMemo(() => rawEmployees?.map(mapEmployee) || [], [rawEmployees]);
+
   useEffect(() => {
     if (tiposContratoData && tiposContratoData.length > 0 && filters.tipoContrato.length === 0) {
       const defaultTypes = tiposContratoData
-        .filter(t =>
-          t.tipoContrato.toLowerCase().includes('locacion') ||
-          t.tipoContrato.toLowerCase().includes('locación') ||
-          t.tipoContrato.toLowerCase().includes('orden de servicio')
-        )
-        .map(t => t.id);
-
-      if (defaultTypes.length > 0) {
-        setFilters(prev => ({ ...prev, tipoContrato: defaultTypes }));
-      }
+        .filter((t: any) => t.tipo_contrato?.toLowerCase().includes('locacion') || t.tipo_contrato?.toLowerCase().includes('locación') || t.tipo_contrato?.toLowerCase().includes('orden de servicio'))
+        .map((t: any) => t.id);
+      if (defaultTypes.length > 0) setFilters(prev => ({ ...prev, tipoContrato: defaultTypes }));
     }
   }, [tiposContratoData]);
 
-  // Fetch attendance data
   useEffect(() => {
-    const fetchData = async () => {
-      if (!firestore || !filters.dateRange?.from || !filters.dateRange?.to) {
-        setAttendanceData([]);
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-
-      const start = Timestamp.fromDate(startOfDay(filters.dateRange.from));
-      const end = Timestamp.fromDate(endOfDay(filters.dateRange.to));
-
-      try {
-        const attendanceQuery = query(
-          collection(firestore, 'asistencias'),
-          where('timestamp', '>=', start),
-          where('timestamp', '<=', end)
-        );
-        const attendanceSnapshot = await getDocs(attendanceQuery);
-        const attendances = attendanceSnapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: doc.id
-        } as AttendanceRecord));
-
-        setAttendanceData(attendances);
-        // Clear pending changes when data refreshes
-        setPendingChanges({});
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-        setAttendanceData([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [firestore, filters.dateRange]);
+    if (!filters.dateRange?.from || !filters.dateRange?.to) { setIsLoading(false); return; }
+    setIsLoading(true);
+    const from = format(startOfDay(filters.dateRange.from), 'yyyy-MM-dd');
+    const to = format(startOfDay(filters.dateRange.to), 'yyyy-MM-dd');
+    apiFetch(`/api/asistencias?from=${from}&to=${to}`)
+      .then(data => { setAttendanceData(data); setPendingChanges({}); })
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [filters.dateRange]);
 
   const workingDays = useMemo(() => {
     const { from, to } = filters.dateRange || {};
     if (!from || !to) return [];
-
-    // Limitar hasta la fecha actual (no mostrar días futuros)
     const today = startOfDay(new Date());
     const effectiveTo = to > today ? today : to;
-
     if (from > effectiveTo) return [];
-
-    return eachDayOfInterval({ start: from, end: effectiveTo }).filter(day => {
-      const dayOfWeek = getDay(day);
-      return dayOfWeek !== 0 && dayOfWeek !== 6;
-    });
+    return eachDayOfInterval({ start: from, end: effectiveTo }).filter(d => { const dw = getDay(d); return dw !== 0 && dw !== 6; });
   }, [filters.dateRange]);
 
-  const filteredEmployees = useMemo(() => {
-    if (!employeesData) return [];
+  const filteredEmployees = useMemo(() => employeesData.filter((e: Employee) => {
+    const dm = filters.division === 'all' || e.divisionId === filters.division;
+    const cm = filters.coordinador === 'all' || e.coordinadorId === filters.coordinador;
+    const sm = filters.scrumMaster === 'all' || e.scrumMasterId === filters.scrumMaster;
+    const pm = filters.proyecto.length === 0 || (e.proyectoId && filters.proyecto.includes(e.proyectoId));
+    const tm = filters.tipoContrato.length === 0 || (e.tipoContratoId && filters.tipoContrato.includes(e.tipoContratoId));
+    const sem = filters.sede.length === 0 || (e.sedeId && filters.sede.includes(e.sedeId));
+    return e.activo && dm && cm && sm && pm && tm && sem;
+  }), [employeesData, filters]);
 
-    return employeesData.filter(employee => {
-      const divisionMatch = filters.division === 'all' || employee.divisionId === filters.division;
-      const coordinadorMatch = filters.coordinador === 'all' || employee.coordinadorId === filters.coordinador;
-      const scrumMasterMatch = filters.scrumMaster === 'all' || employee.scrumMasterId === filters.scrumMaster;
-      const proyectoMatch = filters.proyecto.length === 0 || (employee.proyectoId && filters.proyecto.includes(employee.proyectoId));
-      const tipoContratoMatch = filters.tipoContrato.length === 0 || (employee.tipoContratoId && filters.tipoContrato.includes(employee.tipoContratoId));
-      const sedeMatch = filters.sede.length === 0 || (employee.sedeId && filters.sede.includes(employee.sedeId));
-
-      return employee.activo && divisionMatch && coordinadorMatch && scrumMasterMatch && proyectoMatch && tipoContratoMatch && sedeMatch;
-    });
-  }, [employeesData, filters]);
-
-  // Filtered employees for matrix (with name/dni filters)
   const matrixEmployees = useMemo(() => {
-    let employees = filteredEmployees;
-
-    if (matrixFilters.name) {
-      employees = employees.filter(e =>
-        e.apellidosNombres.toLowerCase().includes(matrixFilters.name.toLowerCase())
-      );
-    }
-    if (matrixFilters.dni) {
-      employees = employees.filter(e => e.dni.includes(matrixFilters.dni));
-    }
-
-    return employees;
+    let emps = filteredEmployees;
+    if (matrixFilters.name) emps = emps.filter((e: Employee) => e.apellidosNombres.toLowerCase().includes(matrixFilters.name.toLowerCase()));
+    if (matrixFilters.dni) emps = emps.filter((e: Employee) => e.dni.includes(matrixFilters.dni));
+    return emps;
   }, [filteredEmployees, matrixFilters]);
 
   const attendanceMatrix = useMemo(() => {
     const matrix: Record<string, Record<string, string>> = {};
-    const filteredEmployeeIds = new Set(filteredEmployees.map(e => e.dni));
-
-    attendanceData.forEach(att => {
-      if (!att.employeeId || !att.timestamp || !filteredEmployeeIds.has(att.employeeId)) return;
-      // Usar format para consistencia con el formato usado en el registrador
-      const dateStr = format(att.timestamp.toDate(), 'yyyy-MM-dd');
-      if (!matrix[att.employeeId]) {
-        matrix[att.employeeId] = {};
-      }
-      matrix[att.employeeId][dateStr] = att.status;
+    const ids = new Set(filteredEmployees.map((e: Employee) => e.dni));
+    attendanceData.forEach((att: any) => {
+      if (!att.dni || !ids.has(att.dni)) return;
+      if (!matrix[att.dni]) matrix[att.dni] = {};
+      matrix[att.dni][att.fecha] = att.status;
     });
     return matrix;
   }, [attendanceData, filteredEmployees]);
 
   const handleAttendanceChange = (employeeDni: string, dateStr: string, status: AttendanceStatus) => {
     setPendingChanges(prev => {
-      const newChanges = { ...prev };
-      if (!newChanges[employeeDni]) {
-        newChanges[employeeDni] = {};
-      }
-
-      // Check if the new status is different from original
-      const originalStatus = attendanceMatrix[employeeDni]?.[dateStr] || 'No Registrado';
-      if (status === originalStatus) {
-        // Remove from pending changes if it's the same as original
-        delete newChanges[employeeDni][dateStr];
-        if (Object.keys(newChanges[employeeDni]).length === 0) {
-          delete newChanges[employeeDni];
-        }
+      const next = { ...prev };
+      if (!next[employeeDni]) next[employeeDni] = {};
+      const original = attendanceMatrix[employeeDni]?.[dateStr] || 'No Registrado';
+      if (status === original) {
+        delete next[employeeDni][dateStr];
+        if (Object.keys(next[employeeDni]).length === 0) delete next[employeeDni];
       } else {
-        newChanges[employeeDni][dateStr] = status;
+        next[employeeDni][dateStr] = status;
       }
-
-      return newChanges;
+      return next;
     });
   };
 
   const handleSaveChanges = async () => {
-    if (!firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo conectar a la base de datos.' });
-      return;
-    }
-
-    const changesCount = Object.values(pendingChanges).reduce((acc, dateChanges) => acc + Object.keys(dateChanges).length, 0);
-
-    if (changesCount === 0) {
-      toast({ title: 'Sin cambios', description: 'No hay cambios pendientes para guardar.' });
-      return;
-    }
-
+    const changesCount = Object.values(pendingChanges).reduce((acc, d) => acc + Object.keys(d).length, 0);
+    if (changesCount === 0) { toast({ title: 'Sin cambios' }); return; }
     setIsSaving(true);
-
     try {
-      const batches: ReturnType<typeof writeBatch>[] = [];
-      let currentBatch = writeBatch(firestore);
-      let operationCount = 0;
-      const MAX_BATCH_SIZE = 500;
-
-      Object.entries(pendingChanges).forEach(([employeeDni, dateChanges]) => {
-        Object.entries(dateChanges).forEach(([dateStr, status]) => {
-          const compositeId = `${employeeDni}_${dateStr}`;
-          const docRef = doc(firestore, 'asistencias', compositeId);
-
-          // Usar startOfDay igual que el registrador para consistencia
-          // Parsear la fecha y usar startOfDay para asegurar consistencia
-          const attendanceDate = startOfDay(parseISO(dateStr));
-          const attendanceTimestamp = Timestamp.fromDate(attendanceDate);
-
-          const payload = {
-            employeeId: employeeDni,
-            status,
-            timestamp: attendanceTimestamp,
-            updatedAt: Timestamp.now(),
-          };
-
-          currentBatch.set(docRef, payload, { merge: true });
-          operationCount++;
-
-          if (operationCount >= MAX_BATCH_SIZE) {
-            batches.push(currentBatch);
-            currentBatch = writeBatch(firestore);
-            operationCount = 0;
-          }
+      // Agrupar por fecha para enviar en batches por fecha
+      const byDate: Record<string, any[]> = {};
+      Object.entries(pendingChanges).forEach(([dni, dates]) => {
+        const emp = employeesData.find((e: Employee) => e.dni === dni);
+        if (!emp) return;
+        Object.entries(dates).forEach(([fecha, status]) => {
+          if (!byDate[fecha]) byDate[fecha] = [];
+          byDate[fecha].push({ employee_id: emp.id, status });
         });
       });
 
-      if (operationCount > 0) {
-        batches.push(currentBatch);
-      }
+      await Promise.all(Object.entries(byDate).map(([fecha, records]) =>
+        apiFetch('/api/asistencias/batch', { method: 'POST', body: JSON.stringify({ fecha, records }) })
+      ));
 
-      for (const batch of batches) {
-        await batch.commit();
-      }
-
-      // Refrescar datos de asistencia después de guardar
-      const start = Timestamp.fromDate(startOfDay(filters.dateRange!.from));
-      const end = Timestamp.fromDate(endOfDay(filters.dateRange!.to));
-
-      const attendanceQuery = query(
-        collection(firestore, 'asistencias'),
-        where('timestamp', '>=', start),
-        where('timestamp', '<=', end)
-      );
-      const attendanceSnapshot = await getDocs(attendanceQuery);
-      const attendances = attendanceSnapshot.docs.map(docSnap => ({
-        ...docSnap.data(),
-        id: docSnap.id
-      } as AttendanceRecord));
-
-      setAttendanceData(attendances);
+      // Refrescar
+      const from = format(startOfDay(filters.dateRange!.from), 'yyyy-MM-dd');
+      const to = format(startOfDay(filters.dateRange!.to), 'yyyy-MM-dd');
+      const refreshed = await apiFetch(`/api/asistencias?from=${from}&to=${to}`);
+      setAttendanceData(refreshed);
       setPendingChanges({});
-
-      toast({
-        title: '✓ Cambios guardados exitosamente',
-        description: `Se guardaron ${changesCount} registros de asistencia.`,
-      });
-    } catch (error) {
-      console.error('Error saving changes: ', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error al guardar',
-        description: 'No se pudieron guardar los cambios. Inténtalo de nuevo.',
-      });
+      toast({ title: '✓ Cambios guardados', description: `${changesCount} registros guardados.` });
+    } catch {
+      toast({ variant: 'destructive', title: 'Error al guardar' });
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleClearFilters = () => {
-    setFilters(initialFilters);
-    setMatrixFilters({ name: '', dni: '' });
   };
 
   return (
@@ -306,33 +161,22 @@ export default function AttendanceMatrixPage() {
         <h1 className="text-3xl font-bold">Registro de Asistencia</h1>
         <p className="text-muted-foreground">Gestiona la asistencia de los empleados por rango de fechas.</p>
       </div>
-
       <Filters
-        filters={filters}
-        setFilters={setFilters}
-        divisions={divisionsData || []}
-        coordinadores={coordinadoresData || []}
-        scrumMasters={scrumMastersData || []}
-        proyectos={proyectosData || []}
-        tiposContrato={tiposContratoData || []}
-        sedes={sedesData || []}
-        onClear={handleClearFilters}
+        filters={filters} setFilters={setFilters}
+        divisions={divisionsData || []} coordinadores={coordinadoresData || []}
+        scrumMasters={scrumMastersData || []} proyectos={proyectosData || []}
+        tiposContrato={tiposContratoData || []} sedes={sedesData || []}
+        onClear={() => { setFilters(initialFilters); setMatrixFilters({ name: '', dni: '' }); }}
       />
-
       {isLoading ? (
         <div className="text-center p-8">Cargando datos...</div>
       ) : (
         <div className="mt-8">
           <EditableAttendanceMatrix
-            employees={matrixEmployees}
-            attendanceMatrix={attendanceMatrix}
-            workingDays={workingDays}
-            filters={matrixFilters}
-            setFilters={setMatrixFilters}
-            onAttendanceChange={handleAttendanceChange}
-            pendingChanges={pendingChanges}
-            onSave={handleSaveChanges}
-            isSaving={isSaving}
+            employees={matrixEmployees} attendanceMatrix={attendanceMatrix}
+            workingDays={workingDays} filters={matrixFilters} setFilters={setMatrixFilters}
+            onAttendanceChange={handleAttendanceChange} pendingChanges={pendingChanges}
+            onSave={handleSaveChanges} isSaving={isSaving}
           />
         </div>
       )}
