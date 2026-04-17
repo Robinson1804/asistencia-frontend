@@ -63,17 +63,23 @@ function useCatalog(endpoint: string, nombreField: string) {
   return { items, loading, newName, setNewName, editId, setEditId, editName, setEditName, handleAdd, handleEdit, handleDelete };
 }
 
-// ─── Tab genérico para Scrum Masters / Coordinadores ─────────────────────────
+// ─── Tab genérico para Scrum Masters / Coordinadores / Divisiones ────────────
 function SimpleCatalogTab({ endpoint, nombreField, label }: { endpoint: string; nombreField: string; label: string }) {
   const { items, loading, newName, setNewName, editId, setEditId, editName, setEditName, handleAdd, handleEdit, handleDelete } = useCatalog(endpoint, nombreField);
+  const [search, setSearch] = useState('');
+
+  const filtered = items.filter(item =>
+    (item[nombreField] ?? '').toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <Input placeholder={`Nombre del ${label}...`} value={newName} onChange={e => setNewName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()} className="max-w-sm" />
         <Button onClick={handleAdd}><PlusCircle className="mr-2 h-4 w-4" />Agregar</Button>
       </div>
+      <Input placeholder={`Buscar ${label}...`} value={search} onChange={e => setSearch(e.target.value)} className="max-w-sm" />
       <div className="rounded-lg border bg-card shadow-sm">
         <Table>
           <TableHeader>
@@ -85,9 +91,9 @@ function SimpleCatalogTab({ endpoint, nombreField, label }: { endpoint: string; 
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={2} className="text-center">Cargando...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={2} className="text-center">No hay registros.</TableCell></TableRow>
-            ) : items.map(item => (
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={2} className="text-center">No se encontraron registros.</TableCell></TableRow>
+            ) : filtered.map(item => (
               <TableRow key={item.id}>
                 <TableCell>
                   {editId === item.id ? (
@@ -131,6 +137,7 @@ function SimpleCatalogTab({ endpoint, nombreField, label }: { endpoint: string; 
           </TableBody>
         </Table>
       </div>
+      <p className="text-sm text-muted-foreground">{filtered.length} de {items.length} registros</p>
     </div>
   );
 }
@@ -139,6 +146,7 @@ function SimpleCatalogTab({ endpoint, nombreField, label }: { endpoint: string; 
 function RelacionesTab() {
   const [relaciones, setRelaciones] = useState<Relacion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [newSM, setNewSM] = useState('');
   const [newCoord, setNewCoord] = useState('');
   const [newDiv, setNewDiv] = useState('');
@@ -205,6 +213,9 @@ function RelacionesTab() {
         <Button onClick={handleAdd}><PlusCircle className="mr-2 h-4 w-4" />Agregar</Button>
       </div>
 
+      <Input placeholder="Buscar por Scrum Master, Coordinador o División..."
+        value={search} onChange={e => setSearch(e.target.value)} className="max-w-sm" />
+
       <div className="rounded-lg border bg-card shadow-sm">
         <Table>
           <TableHeader>
@@ -218,9 +229,17 @@ function RelacionesTab() {
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={4} className="text-center">Cargando...</TableCell></TableRow>
-            ) : relaciones.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center">No hay relaciones.</TableCell></TableRow>
-            ) : relaciones.map(r => (
+            ) : relaciones.filter(r =>
+                [r.nombre_scrum_master, r.nombre_coordinador, r.nombre_division].some(v =>
+                  v?.toLowerCase().includes(search.toLowerCase())
+                )
+              ).length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center">No se encontraron relaciones.</TableCell></TableRow>
+            ) : relaciones.filter(r =>
+                [r.nombre_scrum_master, r.nombre_coordinador, r.nombre_division].some(v =>
+                  v?.toLowerCase().includes(search.toLowerCase())
+                )
+              ).map(r => (
               <TableRow key={r.id}>
                 {editId === r.id ? (
                   <>
@@ -299,6 +318,7 @@ export default function OrganizacionPage() {
         <TabsList className="mb-6">
           <TabsTrigger value="scrum-masters">Scrum Masters</TabsTrigger>
           <TabsTrigger value="coordinadores">Coordinadores</TabsTrigger>
+          <TabsTrigger value="divisiones">Divisiones</TabsTrigger>
           <TabsTrigger value="relaciones">Relaciones División</TabsTrigger>
         </TabsList>
         <TabsContent value="scrum-masters">
@@ -306,6 +326,9 @@ export default function OrganizacionPage() {
         </TabsContent>
         <TabsContent value="coordinadores">
           <SimpleCatalogTab endpoint="/api/coordinadores" nombreField="nombre_coordinador" label="Coordinador" />
+        </TabsContent>
+        <TabsContent value="divisiones">
+          <SimpleCatalogTab endpoint="/api/divisiones" nombreField="nombre_division" label="División" />
         </TabsContent>
         <TabsContent value="relaciones">
           <RelacionesTab />
