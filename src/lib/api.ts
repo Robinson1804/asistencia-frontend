@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').trim();
 
 export async function apiFetch<T = any>(
   path: string,
