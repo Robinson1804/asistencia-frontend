@@ -44,7 +44,7 @@ export const api = {
     apiFetch('/api/asistencias/batch', { method: 'POST', body: JSON.stringify({ fecha, records }) }),
 
   // Catálogos
-  getSedes: () => apiFetch('/api/sedes'),
+  getSedes: () => apiFetch('/api/sedes?activo=true'),
   createSede: (data: any) => apiFetch('/api/sedes', { method: 'POST', body: JSON.stringify(data) }),
   updateSede: (id: string, data: any) => apiFetch(`/api/sedes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteSede: (id: string) => apiFetch(`/api/sedes/${id}`, { method: 'DELETE' }),

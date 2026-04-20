@@ -45,7 +45,7 @@ export default function EmployeeFormPage() {
   const [resolvedDivision, setResolvedDivision] = useState('');
 
   const { data: proyectosData } = useApiData<any>('/api/proyectos');
-  const { data: sedesData } = useApiData<any>('/api/sedes');
+  const { data: sedesData } = useApiData<any>('/api/sedes?activo=true');
   const { data: modalidadesData } = useApiData<any>('/api/modalidades');
   const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato');
   const { data: dttsData } = useApiData<any>('/api/dtt');

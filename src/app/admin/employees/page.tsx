@@ -35,7 +35,7 @@ export default function EmployeesPage() {
   const [sortDirection, setSortDirection] = useState<SortDir>((searchParams.get('sortDir') as SortDir) || 'asc');
 
   const { data: proyectosData } = useApiData<any>('/api/proyectos');
-  const { data: sedesData } = useApiData<any>('/api/sedes');
+  const { data: sedesData } = useApiData<any>('/api/sedes?activo=true');
   const { data: scrumMastersData } = useApiData<any>('/api/scrum-masters');
   const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato');
 

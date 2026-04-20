@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { LogOut, Save, UserCog, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LogOut, Save, UserCog, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
@@ -234,9 +234,14 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mb-6 flex flex-col md:flex-row gap-4">
+          <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center">
             <Input placeholder="Filtrar por apellidos y nombres..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className="max-w-sm" />
             <Input placeholder="Filtrar por DNI..." value={dniFilter} onChange={e => setDniFilter(e.target.value)} className="max-w-xs" />
+            {(nameFilter || dniFilter || selectedSede !== 'todos') && (
+              <Button variant="outline" size="sm" onClick={() => { setNameFilter(''); setDniFilter(''); setSelectedSede('todos'); }}>
+                <X className="mr-2 h-4 w-4" /> Limpiar filtros
+              </Button>
+            )}
           </div>
 
           {loadingEmployees && <div className="flex justify-center py-12"><p className="text-muted-foreground">Cargando empleados...</p></div>}
