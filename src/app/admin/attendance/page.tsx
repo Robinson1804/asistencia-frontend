@@ -50,7 +50,7 @@ export default function AttendanceMatrixPage() {
   const { data: coordinadoresData } = useApiData<Coordinador>('/api/coordinadores');
   const { data: scrumMastersData } = useApiData<ScrumMaster>('/api/scrum-masters');
   const { data: proyectosData } = useApiData<Proyecto>('/api/proyectos');
-  const { data: tiposContratoData } = useApiData<TipoContrato>('/api/tipos-contrato');
+  const { data: tiposContratoData } = useApiData<TipoContrato>('/api/tipos-contrato?activo=true');
   const { data: sedesData } = useApiData<Sede>('/api/sedes?activo=true');
 
   const employeesData = useMemo(() => rawEmployees?.map(mapEmployee) || [], [rawEmployees]);

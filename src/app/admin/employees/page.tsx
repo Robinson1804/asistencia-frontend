@@ -37,7 +37,7 @@ export default function EmployeesPage() {
   const { data: proyectosData } = useApiData<any>('/api/proyectos');
   const { data: sedesData } = useApiData<any>('/api/sedes?activo=true');
   const { data: scrumMastersData } = useApiData<any>('/api/scrum-masters');
-  const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato');
+  const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato?activo=true');
 
   useEffect(() => {
     api.getEmpleados().then(setEmployees).finally(() => setLoadingEmployees(false));

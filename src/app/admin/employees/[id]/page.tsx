@@ -47,7 +47,7 @@ export default function EmployeeFormPage() {
   const { data: proyectosData } = useApiData<any>('/api/proyectos');
   const { data: sedesData } = useApiData<any>('/api/sedes?activo=true');
   const { data: modalidadesData } = useApiData<any>('/api/modalidades');
-  const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato');
+  const { data: tiposContratoData } = useApiData<any>('/api/tipos-contrato?activo=true');
   const { data: dttsData } = useApiData<any>('/api/dtt');
   const { data: scrumMastersData } = useApiData<any>('/api/scrum-masters');
   const { data: relacionesData } = useApiData<any>('/api/relaciones-division');
