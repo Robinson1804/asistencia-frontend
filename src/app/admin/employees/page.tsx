@@ -168,7 +168,7 @@ export default function EmployeesPage() {
               <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todas</SelectItem>
-                {(sedesData || []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_sede}</SelectItem>)}
+                {(sedesData || []).filter((s: any) => s.activo !== false).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_sede}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -188,7 +188,7 @@ export default function EmployeesPage() {
               <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                {(tiposContratoData || []).map((tc: any) => <SelectItem key={tc.id} value={tc.id}>{tc.tipo_contrato}</SelectItem>)}
+                {(tiposContratoData || []).filter((tc: any) => tc.activo !== false).map((tc: any) => <SelectItem key={tc.id} value={tc.id}>{tc.tipo_contrato}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

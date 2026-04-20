@@ -88,12 +88,12 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
     }
   };
 
-  const tiposContratoOptions = tiposContrato.map((t: any) => ({
+  const tiposContratoOptions = tiposContrato.filter((t: any) => t.activo !== false).map((t: any) => ({
       value: t.id,
       label: t.tipo_contrato ?? t.tipoContrato ?? ''
   }));
 
-  const sedesOptions = sedes.map((s: any) => ({
+  const sedesOptions = sedes.filter((s: any) => s.activo !== false).map((s: any) => ({
       value: s.id,
       label: s.nombre_sede ?? s.nombreSede ?? ''
   }));

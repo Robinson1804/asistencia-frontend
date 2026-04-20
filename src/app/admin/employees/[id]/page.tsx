@@ -244,7 +244,7 @@ export default function EmployeeFormPage() {
                     <SelectTrigger><SelectValue placeholder="Seleccionar sede..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin Sede</SelectItem>
-                      {(sedesData || []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_sede}</SelectItem>)}
+                      {(sedesData || []).filter((s: any) => s.activo !== false).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_sede}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )} />
@@ -272,7 +272,7 @@ export default function EmployeeFormPage() {
                     <SelectTrigger><SelectValue placeholder="Seleccionar tipo de contrato..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin Tipo de Contrato</SelectItem>
-                      {(tiposContratoData || []).map((t: any) => <SelectItem key={t.id} value={t.id}>{t.tipo_contrato}</SelectItem>)}
+                      {(tiposContratoData || []).filter((t: any) => t.activo !== false).map((t: any) => <SelectItem key={t.id} value={t.id}>{t.tipo_contrato}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )} />
