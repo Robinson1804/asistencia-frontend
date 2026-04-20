@@ -27,6 +27,12 @@ function mapEmployee(row: any): Employee {
     sedeId: row.sede_id,
     proyectoId: row.proyecto_id,
     tipoContratoId: row.tipo_contrato_id,
+    proyecto: row.nombre_proyecto ? { nombre: row.nombre_proyecto } : undefined,
+    modalidad: row.nombre_modalidad ? { nombre: row.nombre_modalidad } : undefined,
+    coordinador: row.nombre_coordinador ? { nombre: row.nombre_coordinador } : undefined,
+    scrumMaster: row.nombre_scrum_master ? { nombre: row.nombre_scrum_master } : undefined,
+    division: row.nombre_division ? { nombre: row.nombre_division } : undefined,
+    sede: row.nombre_sede ? { nombre: row.nombre_sede } : undefined,
   };
 }
 

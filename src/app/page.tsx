@@ -91,6 +91,11 @@ export default function Home() {
     id: e.dni,
     apellidosNombres: e.apellidos_nombres,
     sede: e.nombre_sede ? { nombre: e.nombre_sede } : undefined,
+    proyecto: e.nombre_proyecto ? { nombre: e.nombre_proyecto } : undefined,
+    modalidad: e.nombre_modalidad ? { nombre: e.nombre_modalidad } : undefined,
+    coordinador: e.nombre_coordinador ? { nombre: e.nombre_coordinador } : undefined,
+    scrumMaster: e.nombre_scrum_master ? { nombre: e.nombre_scrum_master } : undefined,
+    division: e.nombre_division ? { nombre: e.nombre_division } : undefined,
   })), [employees]);
 
   const filteredEmployees = useMemo(() => mappedEmployees.filter(e => {
