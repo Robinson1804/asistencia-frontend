@@ -272,7 +272,7 @@ export function EditableAttendanceMatrix({
               <TableHeader>
                 <TableRow>
                   <TableHead
-                    className="sticky left-0 z-20 bg-card min-w-[250px] font-semibold border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    className="sticky left-0 z-[1] bg-card min-w-[250px] font-semibold border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                   >
                     Empleado
                   </TableHead>
@@ -305,7 +305,7 @@ export function EditableAttendanceMatrix({
                     return (
                       <TableRow key={employee.id}>
                         <TableCell
-                          className="font-medium sticky left-0 z-10 bg-card min-w-[250px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                          className="font-medium sticky left-0 z-[1] bg-card min-w-[250px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                         >
                           <div className="flex items-center gap-2">
                             <div className="flex flex-col flex-1 min-w-0">
