@@ -5,7 +5,7 @@ import { useApiData } from '@/hooks/use-api-data';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+
+const PAGE_SIZE = 10;
 
 type SortCol = 'apellidosNombres' | 'dni' | 'proyecto' | 'sede' | 'scrumMaster';
 type SortDir = 'asc' | 'desc';
@@ -33,6 +35,7 @@ export default function EmployeesPage() {
   const [tipoContratoFilter, setTipoContratoFilter] = useState(searchParams.get('tipoContrato') || 'todos');
   const [sortColumn, setSortColumn] = useState<SortCol>((searchParams.get('sortBy') as SortCol) || 'apellidosNombres');
   const [sortDirection, setSortDirection] = useState<SortDir>((searchParams.get('sortDir') as SortDir) || 'asc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: proyectosData } = useApiData<any>('/api/proyectos');
   const { data: sedesData } = useApiData<any>('/api/sedes?activo=true');
@@ -56,9 +59,12 @@ export default function EmployeesPage() {
     window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
   }, [nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, tipoContratoFilter, sortColumn, sortDirection]);
 
+  useEffect(() => { setCurrentPage(1); }, [nameFilter, dniFilter, proyectoFilter, sedeFilter, scrumMasterFilter, tipoContratoFilter]);
+
   const handleSort = (col: SortCol) => {
     if (sortColumn === col) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortColumn(col); setSortDirection('asc'); }
+    setCurrentPage(1);
   };
 
   const filtered = useMemo(() => {
@@ -114,6 +120,9 @@ export default function EmployeesPage() {
     XLSX.writeFile(wb, `Empleados_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
     toast({ title: 'Exportación exitosa', description: `${data.length} empleados exportados.` });
   };
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const renderSort = (col: SortCol) => sortColumn === col ? (sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />) : null;
 
@@ -203,7 +212,7 @@ export default function EmployeesPage() {
               <TableRow><TableCell colSpan={6} className="text-center">Cargando empleados...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center">No se encontraron empleados.</TableCell></TableRow>
-            ) : filtered.map(emp => (
+            ) : paginated.map(emp => (
               <TableRow key={emp.id}>
                 <TableCell className="font-medium">{emp.apellidos_nombres}</TableCell>
                 <TableCell>{emp.dni}</TableCell>
@@ -236,6 +245,17 @@ export default function EmployeesPage() {
             ))}
           </TableBody>
         </Table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 py-4 border-t">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+              <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filtered.length} empleados)</span>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+              Siguiente <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

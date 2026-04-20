@@ -88,19 +88,19 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
     }
   };
 
-  const tiposContratoOptions = tiposContrato.map(t => ({
+  const tiposContratoOptions = tiposContrato.map((t: any) => ({
       value: t.id,
-      label: t.tipoContrato
+      label: t.tipo_contrato ?? t.tipoContrato ?? ''
   }));
 
-  const sedesOptions = sedes.map(s => ({
+  const sedesOptions = sedes.map((s: any) => ({
       value: s.id,
-      label: s.nombreSede
+      label: s.nombre_sede ?? s.nombreSede ?? ''
   }));
 
-  const proyectosOptions = proyectos.map(p => ({
+  const proyectosOptions = proyectos.map((p: any) => ({
       value: p.id,
-      label: p.codigoProyecto
+      label: p.codigo_proyecto ?? p.codigoProyecto ?? ''
   }));
 
   return (
@@ -150,7 +150,7 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {divisions.map(d => <SelectItem key={d.id} value={d.id}>{d.nombreDivision}</SelectItem>)}
+                {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.nombre_division ?? d.nombreDivision}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -160,7 +160,7 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {coordinadores.map(c => <SelectItem key={c.id} value={c.id}>{c.nombreCoordinador}</SelectItem>)}
+                {coordinadores.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nombre_coordinador ?? c.nombreCoordinador}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -170,7 +170,7 @@ export function Filters({ filters, setFilters, divisions, coordinadores, scrumMa
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {scrumMasters.map(s => <SelectItem key={s.id} value={s.id}>{s.nombreScrumMaster}</SelectItem>)}
+                {scrumMasters.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.nombre_scrum_master ?? s.nombreScrumMaster}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
