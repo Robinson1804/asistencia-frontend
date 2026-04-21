@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Employee, AttendanceStatus, Justification } from "@/types";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
@@ -43,6 +43,45 @@ const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
   </div>
 );
 
+function InfoIcon({ employee }: { employee: Employee }) {
+  const [isTouch, setIsTouch] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setIsTouch(window.matchMedia('(pointer: coarse)').matches);
+  }, []);
+
+  if (isTouch) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="bottom" align="start" className="w-64 p-3">
+          <InfoTooltipContent employee={employee} />
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button">
+            <AlertCircle className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start">
+          <InfoTooltipContent employee={employee} />
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function EmployeeRow({ employee, currentStatus, onStatusChange, index, currentJustification, onJustificationSaved, selectedDate, variant = 'desktop' }: EmployeeRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -63,34 +102,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
   const employeeNameWithInfo = (
     <div className="flex items-center gap-2">
       <span>{employeeName}</span>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button>
-              <AlertCircle className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" align="start">
-            <InfoTooltipContent employee={employee} />
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  );
-
-  const employeeNameWithInfoMobile = (
-    <div className="flex items-center gap-2">
-      <span>{employeeName}</span>
-      <Popover>
-        <PopoverTrigger asChild>
-          <button type="button">
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent side="bottom" align="start" className="w-64 p-3">
-          <InfoTooltipContent employee={employee} />
-        </PopoverContent>
-      </Popover>
+      <InfoIcon employee={employee} />
     </div>
   );
 
@@ -121,7 +133,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
               <div className="font-medium text-sm leading-tight flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-muted-foreground text-xs w-6">{index + 1}.</span>
-                  {employeeNameWithInfoMobile}
+                  {employeeNameWithInfo}
                 </div>
               </div>
               <RadioGroup

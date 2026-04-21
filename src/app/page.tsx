@@ -68,7 +68,12 @@ export default function Home() {
         setInitialAttendances(new Map(attMap));
 
         const justMap = new Map<string, Justification>();
-        justifs.forEach((j: any) => justMap.set(j.dni, { ...j, employeeId: j.dni }));
+        justifs.forEach((j: any) => justMap.set(j.dni, {
+          ...j,
+          employeeId: j.dni,
+          type: j.tipo,
+          notes: j.notas,
+        }));
         setJustifications(new Map(justMap));
         setInitialJustifications(new Map(justMap));
       } catch (e) {
