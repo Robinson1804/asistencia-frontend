@@ -182,10 +182,26 @@ export default function Home() {
           <div className="flex md:hidden items-center justify-between mb-2">
             <h1 className="text-lg font-bold text-primary">Permanencia OTIN</h1>
             <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleSaveAttendances} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-1" />
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+          <div className="flex md:hidden gap-2 mb-2">
+            <Select value={selectedSede} onValueChange={setSelectedSede}>
+              <SelectTrigger className="flex-1 h-8 text-xs">
+                <SelectValue placeholder="Todas las sedes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas las sedes</SelectItem>
+                {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <DatePicker date={selectedDate} setDate={setSelectedDate} />
           </div>
           <div className="hidden md:flex justify-between items-center">
             <div className="flex-1" />
@@ -250,6 +266,38 @@ export default function Home() {
 
           {loadingEmployees && <div className="flex justify-center py-12"><p className="text-muted-foreground">Cargando empleados...</p></div>}
 
+          {/* Vista móvil */}
+          <div className="md:hidden space-y-2">
+            {paginatedEmployees.map((employee, index) => {
+              const globalIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE + index;
+              return (
+                <EmployeeRow
+                  key={employee.id}
+                  employee={employee}
+                  currentStatus={attendances.get(employee.id) || 'No Registrado'}
+                  onStatusChange={handleStatusChange}
+                  index={globalIndex}
+                  currentJustification={justifications.get(employee.id)}
+                  onJustificationSaved={handleJustificationSaved}
+                  selectedDate={selectedDate}
+                  variant="mobile"
+                />
+              );
+            })}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 py-4">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">Pág. {currentPage}/{totalPages} ({filteredEmployees.length})</span>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Vista desktop */}
           <div className="hidden md:block rounded-lg border bg-card shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
