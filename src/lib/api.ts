@@ -15,6 +15,14 @@ export async function apiFetch<T = any>(
     },
   });
 
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    throw new Error('Sesión expirada');
+  }
+
   if (!res.ok) {
     const error = await res.text();
     throw new Error(error || `Error ${res.status}`);
