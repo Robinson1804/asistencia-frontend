@@ -18,9 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Timestamp } from 'firebase/firestore';
 import type { Employee, Justification, AttendanceStatus } from '@/types';
-import { startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 
 const justificationSchema = z.object({
   type: z.string().min(1, 'Debe seleccionar un tipo de justificación'),
@@ -74,9 +73,8 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, ju
 
   const onSubmit = async (data: JustificationFormData) => {
     const justificationPayload: Justification = {
-      // no id or createdAt yet, they will be added on DB save
       employeeId: employee.id,
-      date: Timestamp.fromDate(startOfDay(date)),
+      date: format(date, 'yyyy-MM-dd') as any,
       type: data.type,
       notes: data.notes,
     };

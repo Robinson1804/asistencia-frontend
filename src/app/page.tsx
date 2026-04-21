@@ -118,6 +118,7 @@ export default function Home() {
 
   const handleJustificationSaved = (justification: Justification) => {
     setJustifications(prev => new Map(prev).set(justification.employeeId, justification));
+    setAttendances(prev => new Map(prev).set(justification.employeeId, 'Falta Justificada' as AttendanceStatus));
   };
 
   const handleSaveAttendances = async () => {
