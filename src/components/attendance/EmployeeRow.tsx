@@ -151,6 +151,11 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
         <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
         <TableCell className="font-medium py-4">
           {employeeNameWithInfo}
+          {employee.sede?.nombre && (
+            <span className="mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {employee.sede.nombre}
+            </span>
+          )}
         </TableCell>
         <TableCell className="py-4">
           <RadioGroup

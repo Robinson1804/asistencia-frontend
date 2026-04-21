@@ -55,14 +55,6 @@ export default function AttendanceMatrixPage() {
 
   const employeesData = useMemo(() => rawEmployees?.map(mapEmployee) || [], [rawEmployees]);
 
-  useEffect(() => {
-    if (tiposContratoData && tiposContratoData.length > 0 && filters.tipoContrato.length === 0) {
-      const defaultTypes = tiposContratoData
-        .filter((t: any) => t.tipo_contrato?.toLowerCase().includes('locacion') || t.tipo_contrato?.toLowerCase().includes('locación') || t.tipo_contrato?.toLowerCase().includes('orden de servicio'))
-        .map((t: any) => t.id);
-      if (defaultTypes.length > 0) setFilters(prev => ({ ...prev, tipoContrato: defaultTypes }));
-    }
-  }, [tiposContratoData]);
 
   useEffect(() => {
     if (!filters.dateRange?.from || !filters.dateRange?.to) { setIsLoading(false); return; }
@@ -107,7 +99,7 @@ export default function AttendanceMatrixPage() {
     attendanceData.forEach((att: any) => {
       if (!att.dni || !ids.has(att.dni)) return;
       if (!matrix[att.dni]) matrix[att.dni] = {};
-      matrix[att.dni][att.fecha] = att.status;
+      matrix[att.dni][String(att.fecha).slice(0, 10)] = att.status;
     });
     return matrix;
   }, [attendanceData, filteredEmployees]);

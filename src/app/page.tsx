@@ -121,11 +121,9 @@ export default function Home() {
   };
 
   const handleSaveAttendances = async () => {
-    const currentPageIds = new Set(paginatedEmployees.map(e => e.id));
     const changes: any[] = [];
 
     attendances.forEach((status, dni) => {
-      if (!currentPageIds.has(dni)) return;
       if (initialAttendances.get(dni) === status) return;
       const emp = employees.find(e => e.dni === dni);
       if (emp) changes.push({ employee_id: emp.id, status });
@@ -133,7 +131,7 @@ export default function Home() {
 
     const justChanges: any[] = [];
     justifications.forEach((j, dni) => {
-      if (!currentPageIds.has(dni) || initialJustifications.has(dni)) return;
+      if (initialJustifications.has(dni)) return;
       const emp = employees.find(e => e.dni === dni);
       if (emp) justChanges.push({ employee_id: emp.id, fecha: format(selectedDate, 'yyyy-MM-dd'), tipo: j.type || 'Justificación', notas: j.notes || '' });
     });
@@ -223,7 +221,7 @@ export default function Home() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todas las sedes</SelectItem>
-                    {sedes.map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
+                    {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
