@@ -136,10 +136,10 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
                       htmlFor={`${employee.id}-${option.value}-mobile`}
                       className={cn(
                         "flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-3 text-xs font-medium hover:bg-accent/20 cursor-pointer transition-all duration-200 h-20 gap-2",
-                        currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-md scale-105` : "text-muted-foreground hover:scale-105"
+                        radioValue === option.value ? `${option.borderColor} bg-accent/10 shadow-md scale-105` : "text-muted-foreground hover:scale-105"
                       )}
                     >
-                      <option.icon className={cn("h-6 w-6 transition-colors", currentStatus === option.value ? option.color : "")} />
+                      <option.icon className={cn("h-6 w-6 transition-colors", radioValue === option.value ? option.color : "")} />
                       <span className="text-[10px] font-semibold">{option.label}</span>
                     </Label>
                   </div>
@@ -192,10 +192,10 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
                   htmlFor={`${employee.id}-${option.value}`}
                   className={cn(
                     "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-xs font-medium hover:bg-accent/10 cursor-pointer transition-colors duration-200 h-16",
-                    currentStatus === option.value ? `${option.borderColor} bg-accent/10 shadow-inner` : "text-muted-foreground"
+                    radioValue === option.value ? `${option.borderColor} bg-accent/10 shadow-inner` : "text-muted-foreground"
                   )}
                 >
-                  <option.icon className={cn("h-5 w-5 mb-1 transition-colors", currentStatus === option.value ? option.color : "")} />
+                  <option.icon className={cn("h-5 w-5 mb-1 transition-colors", radioValue === option.value ? option.color : "")} />
                   {option.label}
                 </Label>
               </div>
