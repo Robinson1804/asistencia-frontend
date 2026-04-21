@@ -15,6 +15,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { JustificationModal } from './JustificationModal';
 
 interface EmployeeRowProps {
@@ -72,6 +77,22 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
     </div>
   );
 
+  const employeeNameWithInfoMobile = (
+    <div className="flex items-center gap-2">
+      <span>{employeeName}</span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button type="button">
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="bottom" align="start" className="w-64 p-3">
+          <InfoTooltipContent employee={employee} />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
   const justificationButton = (isMobile = false) => (
     <div key="justificar">
       <Label
@@ -99,7 +120,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
               <div className="font-medium text-sm leading-tight flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-muted-foreground text-xs w-6">{index + 1}.</span>
-                  {employeeNameWithInfo}
+                  {employeeNameWithInfoMobile}
                 </div>
               </div>
               <RadioGroup
