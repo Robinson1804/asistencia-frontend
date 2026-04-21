@@ -13,7 +13,7 @@ interface AttendanceSummaryProps {
 export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSummaryProps) {
   const presentCount = attendances.filter(a => a === 'Presente').length;
   const tardyCount = attendances.filter(a => a === 'Tardanza').length;
-  const absentCount = attendances.filter(a => a === 'Falta').length;
+  const absentCount = attendances.filter(a => a === 'Falta' || a === 'Falta Justificada').length;
 
   const summaryData = [
     { title: "Registrados", count: totalEmployees, icon: Users, color: "text-primary" },

@@ -57,7 +57,8 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
   const groupIndex = Math.floor(index / 11);
   const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
 
-  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza';
+  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza' || currentStatus === 'Falta Justificada';
+  const radioValue = currentStatus === 'Falta Justificada' ? 'Falta' : currentStatus;
 
   const employeeNameWithInfo = (
     <div className="flex items-center gap-2">
@@ -124,7 +125,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
                 </div>
               </div>
               <RadioGroup
-                value={currentStatus}
+                value={radioValue}
                 onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
                 className="grid grid-cols-4 gap-2"
               >
