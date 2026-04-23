@@ -14,10 +14,18 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { LogOut, Save, UserCog, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { LogOut, Save, UserCog, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 const EMPLOYEES_PER_PAGE = 22;
 
@@ -37,6 +45,8 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [savingProgress, setSavingProgress] = useState(0);
+  const [pendingDate, setPendingDate] = useState<Date | null>(null);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
   const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
   const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
@@ -169,6 +179,42 @@ export default function Home() {
     }
   };
 
+  const hasUnsavedChanges = useMemo(() => {
+    for (const [dni, status] of attendances) {
+      if (initialAttendances.get(dni) !== status) return true;
+    }
+    for (const [dni] of justifications) {
+      if (!initialJustifications.has(dni)) return true;
+    }
+    return false;
+  }, [attendances, initialAttendances, justifications, initialJustifications]);
+
+  const handleDateChange = (date: Date) => {
+    if (hasUnsavedChanges) {
+      setPendingDate(date);
+      setShowUnsavedModal(true);
+    } else {
+      setSelectedDate(date);
+    }
+  };
+
+  const handleSaveAndContinue = async () => {
+    await handleSaveAttendances();
+    if (pendingDate) {
+      setSelectedDate(pendingDate);
+      setPendingDate(null);
+    }
+    setShowUnsavedModal(false);
+  };
+
+  const handleDiscardAndContinue = () => {
+    if (pendingDate) {
+      setSelectedDate(pendingDate);
+      setPendingDate(null);
+    }
+    setShowUnsavedModal(false);
+  };
+
   const handleLogout = () => { logout(); router.push('/login'); };
   const attendanceArray = Array.from(attendances.values());
 
@@ -201,7 +247,7 @@ export default function Home() {
                 {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
               </SelectContent>
             </Select>
-            <DatePicker date={selectedDate} setDate={setSelectedDate} />
+            <DatePicker date={selectedDate} setDate={handleDateChange} />
           </div>
           <div className="hidden md:flex justify-between items-center">
             <div className="flex-1" />
@@ -233,7 +279,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <Label>Fecha:</Label>
-                <DatePicker date={selectedDate} setDate={setSelectedDate} />
+                <DatePicker date={selectedDate} setDate={handleDateChange} />
               </div>
               <div className="flex items-center gap-2">
                 <Label>Sede:</Label>
@@ -341,6 +387,32 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <Dialog open={showUnsavedModal} onOpenChange={(open) => { if (!open) setShowUnsavedModal(false); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Cambios sin guardar
+            </DialogTitle>
+            <DialogDescription>
+              Tienes registros modificados que no se han guardado. ¿Qué deseas hacer antes de cambiar de fecha?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowUnsavedModal(false)} className="w-full sm:w-auto">
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDiscardAndContinue} className="w-full sm:w-auto">
+              Descartar cambios
+            </Button>
+            <Button onClick={handleSaveAndContinue} disabled={isSaving} className="w-full sm:w-auto">
+              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? 'Guardando...' : 'Guardar y continuar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
