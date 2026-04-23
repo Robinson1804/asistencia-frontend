@@ -389,7 +389,7 @@ export default function Home() {
       </main>
 
       <Dialog open={showUnsavedModal} onOpenChange={(open) => { if (!open) setShowUnsavedModal(false); }}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="max-w-[360px] sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
@@ -399,18 +399,18 @@ export default function Home() {
               Tienes registros modificados que no se han guardado. ¿Qué deseas hacer antes de cambiar de fecha?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowUnsavedModal(false)} className="w-full sm:w-auto">
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleDiscardAndContinue} className="w-full sm:w-auto">
-              Descartar cambios
-            </Button>
-            <Button onClick={handleSaveAndContinue} disabled={isSaving} className="w-full sm:w-auto">
+          <div className="flex flex-col gap-2 pt-2">
+            <Button onClick={handleSaveAndContinue} disabled={isSaving} className="w-full">
               <Save className="mr-2 h-4 w-4" />
               {isSaving ? 'Guardando...' : 'Guardar y continuar'}
             </Button>
-          </DialogFooter>
+            <Button variant="destructive" onClick={handleDiscardAndContinue} className="w-full">
+              Descartar cambios
+            </Button>
+            <Button variant="outline" onClick={() => setShowUnsavedModal(false)} className="w-full">
+              Cancelar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
