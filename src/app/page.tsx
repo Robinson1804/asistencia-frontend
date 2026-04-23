@@ -11,7 +11,7 @@ import { useAuthContext } from '@/context/auth-context';
 import { api, apiFetch } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { LogOut, Save, UserCog, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
@@ -122,10 +122,58 @@ export default function Home() {
   }), [mappedEmployees, selectedSede, nameFilter, dniFilter]);
 
   const totalPages = Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE);
-  const paginatedEmployees = useMemo(() => {
-    const start = (currentPage - 1) * EMPLOYEES_PER_PAGE;
-    return filteredEmployees.slice(start, start + EMPLOYEES_PER_PAGE);
-  }, [filteredEmployees, currentPage]);
+
+  type GapRow = { isGap: true; orden: number; id: string };
+  type DisplayRow = (typeof filteredEmployees[0] & { isGap: false }) | GapRow;
+
+  // Ordenes ocupados por empleados inactivos — no deben generar gap visual.
+  const inactiveOrdenes = useMemo(() => {
+    const set = new Set<number>();
+    employees.forEach(e => {
+      if (e.activo === false && e.orden) set.add(parseInt(e.orden, 10));
+    });
+    return set;
+  }, [employees]);
+
+  // Inserta filas vacías donde hay saltos en el número de orden.
+  // Solo cuando no hay filtro de nombre/DNI (carece de sentido en búsqueda).
+  // Los ordenes de empleados inactivos no generan gap: ellos tenían ese puesto.
+  const allWithGaps = useMemo((): DisplayRow[] => {
+    if (nameFilter || dniFilter) return filteredEmployees.map(e => ({ ...e, isGap: false as const }));
+    const result: DisplayRow[] = [];
+    filteredEmployees.forEach((emp, i) => {
+      const cur = parseInt(emp.orden ?? '0', 10);
+      const prev = i > 0 ? parseInt(filteredEmployees[i - 1].orden ?? '0', 10) : cur;
+      if (i > 0) {
+        for (let g = prev + 1; g < cur; g++) {
+          if (!inactiveOrdenes.has(g)) {
+            result.push({ isGap: true, orden: g, id: `gap-${g}` });
+          }
+        }
+      }
+      result.push({ ...emp, isGap: false });
+    });
+    return result;
+  }, [filteredEmployees, nameFilter, dniFilter, inactiveOrdenes]);
+
+  // Pagina por cantidad de empleados reales, pero incluye los gaps del rango.
+  const paginatedEmployees = useMemo((): DisplayRow[] => {
+    const empStart = (currentPage - 1) * EMPLOYEES_PER_PAGE;
+    const empEnd = empStart + EMPLOYEES_PER_PAGE;
+    let empCount = 0;
+    let startIdx = -1;
+    let endIdx = allWithGaps.length;
+    for (let i = 0; i < allWithGaps.length; i++) {
+      const item = allWithGaps[i];
+      if (!item.isGap) {
+        if (empCount === empStart && startIdx === -1) startIdx = i;
+        empCount++;
+        if (empCount === empEnd) { endIdx = i + 1; break; }
+      }
+    }
+    if (startIdx === -1) return [];
+    return allWithGaps.slice(startIdx, endIdx);
+  }, [allWithGaps, currentPage]);
 
   const handleStatusChange = (employeeId: string, status: AttendanceStatus) => {
     setAttendances(prev => new Map(prev).set(employeeId, status));
@@ -318,22 +366,33 @@ export default function Home() {
 
           {/* Vista móvil */}
           <div className="md:hidden space-y-2">
-            {paginatedEmployees.map((employee, index) => {
-              const globalIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE + index;
-              return (
-                <EmployeeRow
-                  key={employee.id}
-                  employee={employee}
-                  currentStatus={attendances.get(employee.id) || 'No Registrado'}
-                  onStatusChange={handleStatusChange}
-                  index={globalIndex}
-                  currentJustification={justifications.get(employee.id)}
-                  onJustificationSaved={handleJustificationSaved}
-                  selectedDate={selectedDate}
-                  variant="mobile"
-                />
-              );
-            })}
+            {(() => {
+              let empSeq = (currentPage - 1) * EMPLOYEES_PER_PAGE;
+              return paginatedEmployees.map(item => {
+                if (item.isGap) {
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 px-4 py-2 rounded border border-dashed border-border/40 bg-muted/20">
+                      <span className="text-xs text-muted-foreground/50 w-6">{item.orden}</span>
+                      <span className="text-xs text-muted-foreground/40 italic">— asiento vacío —</span>
+                    </div>
+                  );
+                }
+                const idx = empSeq++;
+                return (
+                  <EmployeeRow
+                    key={item.id}
+                    employee={item}
+                    currentStatus={attendances.get(item.id) || 'No Registrado'}
+                    onStatusChange={handleStatusChange}
+                    index={idx}
+                    currentJustification={justifications.get(item.id)}
+                    onJustificationSaved={handleJustificationSaved}
+                    selectedDate={selectedDate}
+                    variant="mobile"
+                  />
+                );
+              });
+            })()}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-3 py-4">
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
@@ -358,22 +417,35 @@ export default function Home() {
                 </UiTableRow>
               </TableHeader>
               <TableBody>
-                {paginatedEmployees.map((employee, index) => {
-                  const globalIndex = (currentPage - 1) * EMPLOYEES_PER_PAGE + index;
-                  return (
-                    <EmployeeRow
-                      key={employee.id}
-                      employee={employee}
-                      currentStatus={attendances.get(employee.id) || 'No Registrado'}
-                      onStatusChange={handleStatusChange}
-                      index={globalIndex}
-                      currentJustification={justifications.get(employee.id)}
-                      onJustificationSaved={handleJustificationSaved}
-                      selectedDate={selectedDate}
-                      variant="desktop"
-                    />
-                  );
-                })}
+                {(() => {
+                  let empSeq = (currentPage - 1) * EMPLOYEES_PER_PAGE;
+                  return paginatedEmployees.map(item => {
+                    if (item.isGap) {
+                      return (
+                        <UiTableRow key={item.id} className="border-dashed bg-muted/10 hover:bg-muted/10">
+                          <TableCell className="text-muted-foreground/40 text-xs py-2">{item.orden}</TableCell>
+                          <TableCell className="text-muted-foreground/40 text-xs italic py-2" colSpan={2}>
+                            — asiento vacío —
+                          </TableCell>
+                        </UiTableRow>
+                      );
+                    }
+                    const idx = empSeq++;
+                    return (
+                      <EmployeeRow
+                        key={item.id}
+                        employee={item}
+                        currentStatus={attendances.get(item.id) || 'No Registrado'}
+                        onStatusChange={handleStatusChange}
+                        index={idx}
+                        currentJustification={justifications.get(item.id)}
+                        onJustificationSaved={handleJustificationSaved}
+                        selectedDate={selectedDate}
+                        variant="desktop"
+                      />
+                    );
+                  });
+                })()}
               </TableBody>
             </Table>
 
