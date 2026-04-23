@@ -12,7 +12,7 @@ interface AttendanceSummaryProps {
 
 export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSummaryProps) {
   const presentCount = attendances.filter(a => a === 'Presente').length;
-  const tardyCount = attendances.filter(a => a === 'Tardanza').length;
+  const tardyCount = attendances.filter(a => a === 'Tardanza' || a === 'Tardanza Justificada').length;
   const absentCount = attendances.filter(a => a === 'Falta' || a === 'Falta Justificada').length;
 
   const summaryData = [

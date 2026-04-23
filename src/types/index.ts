@@ -1,6 +1,6 @@
 
 
-export type AttendanceStatus = 'Presente' | 'Tardanza' | 'Falta' | 'No Registrado';
+export type AttendanceStatus = 'Presente' | 'Tardanza' | 'Falta' | 'Falta Justificada' | 'Tardanza Justificada' | 'No Registrado';
 
 export interface Employee {
   id: string;

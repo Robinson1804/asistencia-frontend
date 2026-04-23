@@ -124,6 +124,8 @@ export function EditableAttendanceMatrix({
         return <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />;
       case 'Tardanza':
         return <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />;
+      case 'Tardanza Justificada':
+        return <FileCheck className="h-5 w-5 text-orange-500 dark:text-orange-400" />;
       case 'Falta':
         return <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />;
       case 'Falta Justificada':
@@ -139,6 +141,8 @@ export function EditableAttendanceMatrix({
         return 'bg-green-50 dark:bg-green-900/20';
       case 'Tardanza':
         return 'bg-yellow-50 dark:bg-yellow-900/20';
+      case 'Tardanza Justificada':
+        return 'bg-orange-50 dark:bg-orange-900/20';
       case 'Falta':
         return 'bg-red-50 dark:bg-red-900/20';
       case 'Falta Justificada':
@@ -156,9 +160,10 @@ export function EditableAttendanceMatrix({
 
   const statusLabels: Record<string, string> = {
     Presente: 'Presente',
-    Tardanza: 'Tardanza',
-    Falta: 'Falta Injustificada',
-    'Falta Justificada': 'Falta Justificada',
+    Tardanza: 'Tardanza injustificada',
+    'Tardanza Justificada': 'Tardanza justificada',
+    Falta: 'Falta injustificada',
+    'Falta Justificada': 'Falta justificada',
     'No Registrado': 'No Registrado',
   };
 
@@ -185,6 +190,7 @@ export function EditableAttendanceMatrix({
         const statusAbbrev: Record<string, string> = {
           'Presente': 'P',
           'Tardanza': 'T',
+          'Tardanza Justificada': 'TJ',
           'Falta': 'F',
           'Falta Justificada': 'FJ',
           'No Registrado': '-',
@@ -450,15 +456,19 @@ export function EditableAttendanceMatrix({
           </div>
           <div className="flex items-center gap-1 text-sm">
             <Clock className="h-4 w-4 text-yellow-600" />
-            <span>Tardanza</span>
+            <span>Tardanza injust.</span>
+          </div>
+          <div className="flex items-center gap-1 text-sm">
+            <FileCheck className="h-4 w-4 text-orange-500" />
+            <span>Tardanza just.</span>
           </div>
           <div className="flex items-center gap-1 text-sm">
             <XCircle className="h-4 w-4 text-red-600" />
-            <span>Falta Injust.</span>
+            <span>Falta injust.</span>
           </div>
           <div className="flex items-center gap-1 text-sm">
             <FileCheck className="h-4 w-4 text-blue-600" />
-            <span>Falta Just.</span>
+            <span>Falta just.</span>
           </div>
           <div className="flex items-center gap-1 text-sm">
             <HelpCircle className="h-4 w-4 text-gray-400" />

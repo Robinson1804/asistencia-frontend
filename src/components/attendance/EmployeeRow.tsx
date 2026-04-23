@@ -96,8 +96,8 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
   const groupIndex = Math.floor(index / 11);
   const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
 
-  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza' || currentStatus === 'Falta Justificada';
-  const radioValue = currentStatus === 'Falta Justificada' ? 'Falta' : currentStatus;
+  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza' || currentStatus === 'Falta Justificada' || currentStatus === 'Tardanza Justificada';
+  const radioValue = currentStatus === 'Falta Justificada' ? 'Falta' : currentStatus === 'Tardanza Justificada' ? 'Tardanza' : currentStatus;
 
   const employeeNameWithInfo = (
     <div className="flex items-center gap-2">
