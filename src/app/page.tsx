@@ -141,9 +141,11 @@ export default function Home() {
   const allWithGaps = useMemo((): DisplayRow[] => {
     if (nameFilter || dniFilter) return filteredEmployees.map(e => ({ ...e, isGap: false as const }));
     const result: DisplayRow[] = [];
+    console.log('[gaps] inactiveOrdenes:', [...inactiveOrdenes]);
+    console.log('[gaps] filteredEmployees ordenes:', filteredEmployees.map(e => ({ nombre: e.apellidosNombres, orden: e.orden })));
     filteredEmployees.forEach((emp, i) => {
-      const cur = parseInt(emp.orden ?? '0', 10);
-      const prev = i > 0 ? parseInt(filteredEmployees[i - 1].orden ?? '0', 10) : cur;
+      const cur = parseInt(String(emp.orden ?? '0'), 10);
+      const prev = i > 0 ? parseInt(String(filteredEmployees[i - 1].orden ?? '0'), 10) : cur;
       if (i > 0) {
         for (let g = prev + 1; g < cur; g++) {
           if (!inactiveOrdenes.has(g)) {
@@ -153,6 +155,7 @@ export default function Home() {
       }
       result.push({ ...emp, isGap: false });
     });
+    console.log('[gaps] result length:', result.length, 'gaps:', result.filter(r => r.isGap).length);
     return result;
   }, [filteredEmployees, nameFilter, dniFilter, inactiveOrdenes]);
 

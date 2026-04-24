@@ -9,7 +9,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, Users, Briefcase, Building, LogOut, BarChart, Network } from 'lucide-react';
+import { Home, Users, Briefcase, Building, LogOut, BarChart, Network, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -62,6 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const menuItems = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: BarChart },
     { href: '/admin/attendance', label: 'Asistencia', icon: Home },
+    { href: '/admin/reportes', label: 'Reportes', icon: FileText },
     { href: '/admin/employees', label: 'Empleados', icon: Users },
     { href: '/admin/projects', label: 'Proyectos', icon: Briefcase },
     { href: '/admin/sedes', label: 'Sedes', icon: Building },
