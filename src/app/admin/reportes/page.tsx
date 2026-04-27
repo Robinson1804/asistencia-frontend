@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Search, UserCheck, UserX, Clock, FileCheck } from 'lucide-react';
+import { Download, Search, UserCheck, UserX, Clock, FileCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DatePicker } from '@/components/attendance/DatePicker';
 import * as XLSX from 'xlsx';
 
@@ -75,6 +75,8 @@ export default function ReportesPage() {
   const [data, setData] = useState<ReporteRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   const handleSearch = async () => {
     setIsLoading(true);
@@ -85,6 +87,7 @@ export default function ReportesPage() {
       if (statusFilter !== 'todos') params.set('justificado', justFilter);
       const rows = await apiFetch(`/api/reportes/asistencias?${params}`);
       setData(rows);
+      setCurrentPage(1);
     } catch {
       toast({ variant: 'destructive', title: 'Error al generar reporte' });
     } finally {
@@ -99,6 +102,12 @@ export default function ReportesPage() {
     faltasInj: data.filter(r => r.status === 'Falta').length,
     faltasJust: data.filter(r => r.status === 'Falta Justificada').length,
   }), [data]);
+
+  const totalPages = Math.ceil(data.length / PAGE_SIZE);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return data.slice(start, start + PAGE_SIZE);
+  }, [data, currentPage]);
 
   const handleExport = () => {
     const { from, to } = getDateRange(periodo, desde, hasta);
@@ -288,28 +297,47 @@ export default function ReportesPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.map((row, i) => (
-                        <TableRow key={`${row.dni}-${row.fecha}-${i}`}>
-                          <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
-                          <TableCell className="text-sm whitespace-nowrap">
-                            {row.fecha.slice(0, 10).split('-').reverse().join('/')}
-                          </TableCell>
-                          <TableCell className="font-medium">{row.apellidos_nombres}</TableCell>
-                          <TableCell className="text-sm">{row.dni}</TableCell>
-                          <TableCell className="text-sm">{row.nombre_sede ?? '-'}</TableCell>
-                          <TableCell>
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_BADGE[row.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                              {STATUS_LABELS[row.status] ?? row.status}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-sm">{row.justificacion_tipo ?? '-'}</TableCell>
-                          <TableCell className="text-sm max-w-[200px] truncate" title={row.justificacion_notas ?? ''}>
-                            {row.justificacion_notas ?? '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {paginatedData.map((row, i) => {
+                        const globalIndex = (currentPage - 1) * PAGE_SIZE + i + 1;
+                        return (
+                          <TableRow key={`${row.dni}-${row.fecha}-${i}`}>
+                            <TableCell className="text-muted-foreground text-xs">{globalIndex}</TableCell>
+                            <TableCell className="text-sm whitespace-nowrap">
+                              {row.fecha.slice(0, 10).split('-').reverse().join('/')}
+                            </TableCell>
+                            <TableCell className="font-medium">{row.apellidos_nombres}</TableCell>
+                            <TableCell className="text-sm">{row.dni}</TableCell>
+                            <TableCell className="text-sm">{row.nombre_sede ?? '-'}</TableCell>
+                            <TableCell>
+                              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_BADGE[row.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                                {STATUS_LABELS[row.status] ?? row.status}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm">{row.justificacion_tipo ?? '-'}</TableCell>
+                            <TableCell className="text-sm max-w-[200px] truncate" title={row.justificacion_notas ?? ''}>
+                              {row.justificacion_notas ?? '-'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, data.length)} de {data.length} registros
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm">Página {currentPage} de {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
