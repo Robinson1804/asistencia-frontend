@@ -104,7 +104,7 @@ export default function ReportesPage() {
     const { from, to } = getDateRange(periodo, desde, hasta);
     const rows = data.map((r, i) => ({
       '#': i + 1,
-      'Fecha': format(new Date(r.fecha), 'dd/MM/yyyy'),
+      'Fecha': r.fecha.slice(0, 10).split('-').reverse().join('/'),
       'Apellidos y Nombres': r.apellidos_nombres,
       'DNI': r.dni,
       'Sede': r.nombre_sede ?? '-',
@@ -292,7 +292,7 @@ export default function ReportesPage() {
                         <TableRow key={`${row.dni}-${row.fecha}-${i}`}>
                           <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
                           <TableCell className="text-sm whitespace-nowrap">
-                            {format(new Date(row.fecha), 'dd/MM/yyyy')}
+                            {row.fecha.slice(0, 10).split('-').reverse().join('/')}
                           </TableCell>
                           <TableCell className="font-medium">{row.apellidos_nombres}</TableCell>
                           <TableCell className="text-sm">{row.dni}</TableCell>
