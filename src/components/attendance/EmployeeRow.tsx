@@ -82,6 +82,21 @@ function InfoIcon({ employee }: { employee: Employee }) {
   );
 }
 
+function getContractBadgeClass(tipo: string): string {
+  const t = tipo.toLowerCase();
+  if (t.includes('orden') || t.includes('servicio') || t.includes('os'))
+    return 'bg-purple-100 text-purple-700 border-purple-200';
+  if (t.includes('cas'))
+    return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (t.includes('nombrado') || t.includes('nombramiento'))
+    return 'bg-green-100 text-green-700 border-green-200';
+  if (t.includes('locacion') || t.includes('locación') || t.includes('snp'))
+    return 'bg-pink-100 text-pink-700 border-pink-200';
+  if (t.includes('contrato') || t.includes('plazo'))
+    return 'bg-orange-100 text-orange-700 border-orange-200';
+  return 'bg-gray-100 text-gray-600 border-gray-200';
+}
+
 export function EmployeeRow({ employee, currentStatus, onStatusChange, index, currentJustification, onJustificationSaved, selectedDate, variant = 'desktop' }: EmployeeRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -204,7 +219,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
               </span>
             )}
             {employee.tipoContrato?.tipo && (
-              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getContractBadgeClass(employee.tipoContrato.tipo)}`}>
                 {employee.tipoContrato.tipo}
               </span>
             )}
