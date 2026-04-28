@@ -224,7 +224,7 @@ export function EmployeeRow({
   );
 
   const statusButtons = (isMobile = false) => (
-    <div className={cn("flex gap-2", isMobile && "flex-wrap")}>
+    <div className={cn("flex gap-2 justify-center", isMobile && "flex-wrap justify-start")}>
       {statusOptions.map(option => {
         const isSelected = currentStatus === option.value;
         return (
@@ -320,9 +320,9 @@ export function EmployeeRow({
         </TableCell>
         <TableCell className="py-4">
           {readOnly
-            ? <div className="flex items-center gap-3">
+            ? <div className="flex items-center justify-between w-full pr-4">
                 <StatusDisplay status={currentStatus} />
-                {(isFalta || currentJustification) && justificationButton(false)}
+                {(isFalta || currentJustification) && <div className="ml-8">{justificationButton(false)}</div>}
               </div>
             : statusButtons(false)
           }
