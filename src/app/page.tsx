@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Justification, TurnoNumber, TurnoStatus, TurnoStatuses } from '@/types';
-import { TURNOS, getActiveTurno } from '@/types';
+import { TURNOS, getActiveTurno, computeDailyStatus } from '@/types';
 import { AttendanceSummary } from '@/components/attendance/AttendanceSummary';
 import { EmployeeRow } from '@/components/attendance/EmployeeRow';
 import { DatePicker } from '@/components/attendance/DatePicker';
@@ -42,6 +42,7 @@ export default function Home() {
   // Turno
   const [selectedTurno, setSelectedTurno] = useState<TurnoNumber>(() => getActiveTurno());
   const [pendingTurno, setPendingTurno] = useState<TurnoNumber | null>(null);
+  const [isResultadoView, setIsResultadoView] = useState(false);
 
   // Data
   const [allTurnoData, setAllTurnoData] = useState<any[]>([]);
@@ -187,10 +188,15 @@ export default function Home() {
     return result;
   }, [allWithGaps, currentPage]);
 
-  const attendanceArray = useMemo(() =>
-    filteredEmployees.map(emp => getEffectiveStatus(emp.id) as AttendanceStatus),
-    [filteredEmployees, getEffectiveStatus]
-  );
+  const attendanceArray = useMemo(() => {
+    if (isResultadoView) {
+      return filteredEmployees.map(emp => {
+        const ts = turnoMap.get(emp.id) ?? {};
+        return (computeDailyStatus(ts) ?? 'No Registrado') as AttendanceStatus;
+      });
+    }
+    return filteredEmployees.map(emp => getEffectiveStatus(emp.id) as AttendanceStatus);
+  }, [filteredEmployees, getEffectiveStatus, isResultadoView, turnoMap]);
 
   // Handlers
   const handleStatusChange = (dni: string, status: TurnoStatus) => {
@@ -278,13 +284,18 @@ export default function Home() {
   const turnoLabel = TURNOS.find(t => t.turno === selectedTurno)?.label ?? '';
 
   const TurnoSelector = ({ className = '' }: { className?: string }) => (
-    <div className={`flex gap-2 ${className}`}>
+    <div className={`flex gap-2 flex-wrap ${className}`}>
       {TURNOS.map(t => (
-        <Button key={t.turno} variant={selectedTurno === t.turno ? 'default' : 'outline'}
-          size="sm" onClick={() => handleTurnoChange(t.turno)}>
+        <Button key={t.turno}
+          variant={!isResultadoView && selectedTurno === t.turno ? 'default' : 'outline'}
+          size="sm" onClick={() => { setIsResultadoView(false); handleTurnoChange(t.turno); }}>
           {t.label}
         </Button>
       ))}
+      <Button variant={isResultadoView ? 'default' : 'outline'} size="sm"
+        onClick={() => setIsResultadoView(true)}>
+        Resultado del día
+      </Button>
     </div>
   );
 
@@ -326,9 +337,13 @@ export default function Home() {
           </div>
           <div className="flex md:hidden gap-1">
             {TURNOS.map(t => (
-              <Button key={t.turno} size="sm" variant={selectedTurno === t.turno ? 'default' : 'outline'}
-                className="flex-1 text-xs h-7" onClick={() => handleTurnoChange(t.turno)}>{t.short}</Button>
+              <Button key={t.turno} size="sm"
+                variant={!isResultadoView && selectedTurno === t.turno ? 'default' : 'outline'}
+                className="flex-1 text-xs h-7"
+                onClick={() => { setIsResultadoView(false); handleTurnoChange(t.turno); }}>{t.short}</Button>
             ))}
+            <Button size="sm" variant={isResultadoView ? 'default' : 'outline'}
+              className="flex-1 text-xs h-7" onClick={() => setIsResultadoView(true)}>Día</Button>
           </div>
           {/* Desktop */}
           <div className="hidden md:flex justify-between items-center">
@@ -348,7 +363,7 @@ export default function Home() {
         </div>
 
         <section className="mb-6 md:mb-8">
-          <AttendanceSummary attendances={attendanceArray} totalEmployees={filteredEmployees.length} />
+          <AttendanceSummary attendances={attendanceArray} totalEmployees={filteredEmployees.length} hideTardanza={!isResultadoView} />
         </section>
 
         <Separator className="my-6 md:my-8 bg-border/50" />
@@ -379,7 +394,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg border">
             <span className="text-sm font-medium text-muted-foreground">Horario de registro:</span>
             <TurnoSelector />
-            <span className="text-xs text-muted-foreground ml-auto">Registrando horario {turnoLabel}</span>
+            <span className="text-xs text-muted-foreground ml-auto">{isResultadoView ? 'Vista resultado del día' : `Registrando horario ${turnoLabel}`}</span>
           </div>
 
           {/* Filters */}
@@ -410,14 +425,16 @@ export default function Home() {
                   </div>
                 );
                 const idx = empSeq++;
+                const dailyStatus = computeDailyStatus(turnoMap.get(item.id) ?? {}) ?? 'No Registrado';
                 return (
                   <EmployeeRow key={item.id} employee={item} currentTurno={selectedTurno}
                     turnoStatuses={turnoMap.get(item.id) ?? {}}
-                    currentStatus={getEffectiveStatus(item.id)}
+                    currentStatus={isResultadoView ? dailyStatus : getEffectiveStatus(item.id)}
                     onStatusChange={handleStatusChange} index={idx}
                     currentJustification={justifications.get(`${item.id}-${selectedTurno}`) as any}
                     onJustificationSaved={handleJustificationSaved as any}
-                    selectedDate={selectedDate} variant="mobile" />
+                    selectedDate={selectedDate} variant="mobile"
+                    readOnly={isResultadoView} />
                 );
               });
             })()}
@@ -434,7 +451,7 @@ export default function Home() {
                 <UiTableRow>
                   <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
-                  <TableHead className="text-center w-[500px]">Horario {turnoLabel} — Registro</TableHead>
+                  <TableHead className="text-center w-[500px]">{isResultadoView ? 'Resultado del Día' : `Horario ${turnoLabel} — Registro`}</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
@@ -448,14 +465,16 @@ export default function Home() {
                       </UiTableRow>
                     );
                     const idx = empSeq++;
+                    const dailyStatus = computeDailyStatus(turnoMap.get(item.id) ?? {}) ?? 'No Registrado';
                     return (
                       <EmployeeRow key={item.id} employee={item} currentTurno={selectedTurno}
                         turnoStatuses={turnoMap.get(item.id) ?? {}}
-                        currentStatus={getEffectiveStatus(item.id)}
+                        currentStatus={isResultadoView ? dailyStatus : getEffectiveStatus(item.id)}
                         onStatusChange={handleStatusChange} index={idx}
                         currentJustification={justifications.get(`${item.id}-${selectedTurno}`) as any}
                         onJustificationSaved={handleJustificationSaved as any}
-                        selectedDate={selectedDate} variant="desktop" />
+                        selectedDate={selectedDate} variant="desktop"
+                        readOnly={isResultadoView} />
                     );
                   });
                 })()}

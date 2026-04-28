@@ -8,9 +8,10 @@ import { UserCheck, Clock, UserX, Users } from "lucide-react";
 interface AttendanceSummaryProps {
   attendances: AttendanceStatus[];
   totalEmployees: number;
+  hideTardanza?: boolean;
 }
 
-export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSummaryProps) {
+export function AttendanceSummary({ attendances, totalEmployees, hideTardanza = false }: AttendanceSummaryProps) {
   const presentCount = attendances.filter(a => a === 'Presente').length;
   const tardyCount = attendances.filter(a => a === 'Tardanza' || a === 'Tardanza Justificada').length;
   const absentCount = attendances.filter(a => a === 'Falta' || a === 'Falta Justificada').length;
@@ -18,7 +19,7 @@ export function AttendanceSummary({ attendances, totalEmployees }: AttendanceSum
   const summaryData = [
     { title: "Registrados", count: totalEmployees, icon: Users, color: "text-primary" },
     { title: "Presentes", count: presentCount, icon: UserCheck, color: "text-green-500" },
-    { title: "Tardanzas", count: tardyCount, icon: Clock, color: "text-yellow-500" },
+    ...(!hideTardanza ? [{ title: "Tardanzas", count: tardyCount, icon: Clock, color: "text-yellow-500" }] : []),
     { title: "Faltas", count: absentCount, icon: UserX, color: "text-destructive" },
   ];
 

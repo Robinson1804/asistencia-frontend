@@ -7,7 +7,7 @@ import { TURNOS, computeDailyStatus } from '@/types';
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, XCircle, AlertCircle, FileText } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, AlertCircle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -26,7 +26,7 @@ interface EmployeeRowProps {
   employee: Employee;
   currentTurno: TurnoNumber;
   turnoStatuses: TurnoStatuses;
-  currentStatus: TurnoStatus | 'No Registrado';
+  currentStatus: string;
   onStatusChange: (employeeId: string, status: TurnoStatus) => void;
   index: number;
   currentJustification?: Justification;
@@ -147,15 +147,20 @@ function DailyStatusBadge({ statuses }: { statuses: TurnoStatuses }) {
   );
 }
 
-function StatusDisplay({ status }: { status: TurnoStatus | 'No Registrado' }) {
+function StatusDisplay({ status }: { status: string }) {
   if (status === 'Presente') return (
-    <span className="flex items-center gap-1 text-green-600 font-medium text-sm">
+    <span className="flex items-center gap-1 text-green-600 font-semibold text-sm">
       <CheckCircle2 className="h-4 w-4" /> Presente
     </span>
   );
   if (status === 'Falta') return (
-    <span className="flex items-center gap-1 text-red-600 font-medium text-sm">
+    <span className="flex items-center gap-1 text-red-600 font-semibold text-sm">
       <XCircle className="h-4 w-4" /> Falta
+    </span>
+  );
+  if (status === 'Tardanza') return (
+    <span className="flex items-center gap-1 text-yellow-600 font-semibold text-sm">
+      <Clock className="h-4 w-4" /> Tardanza
     </span>
   );
   return <span className="text-muted-foreground text-sm italic">No registrado</span>;

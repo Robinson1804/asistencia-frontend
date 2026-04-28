@@ -48,6 +48,7 @@ export default function AttendanceMatrixPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, AttendanceStatus>>>({});
+  const [turnoData, setTurnoData] = useState<any[]>([]);
 
   const { data: rawEmployees } = useApiData<any>('/api/empleados');
   const { data: divisionsData } = useApiData<Division>('/api/divisiones');
@@ -65,8 +66,11 @@ export default function AttendanceMatrixPage() {
     setIsLoading(true);
     const from = format(startOfDay(filters.dateRange.from), 'yyyy-MM-dd');
     const to = format(startOfDay(filters.dateRange.to), 'yyyy-MM-dd');
-    apiFetch(`/api/asistencias?from=${from}&to=${to}`)
-      .then(data => { setAttendanceData(data); setPendingChanges({}); })
+    Promise.all([
+      apiFetch(`/api/asistencias?from=${from}&to=${to}`),
+      apiFetch(`/api/asistencias-turno?from=${from}&to=${to}`),
+    ])
+      .then(([data, turno]) => { setAttendanceData(data); setTurnoData(turno); setPendingChanges({}); })
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [filters.dateRange]);
@@ -93,6 +97,17 @@ export default function AttendanceMatrixPage() {
     if (matrixFilters.dni) emps = emps.filter((e: Employee) => e.dni.includes(matrixFilters.dni));
     return emps;
   }, [filteredEmployees, matrixFilters]);
+
+  const turnoMatrix = useMemo(() => {
+    const matrix: Record<string, Record<string, Record<number, string>>> = {};
+    turnoData.forEach((r: any) => {
+      if (!r.dni) return;
+      if (!matrix[r.dni]) matrix[r.dni] = {};
+      if (!matrix[r.dni][r.fecha]) matrix[r.dni][r.fecha] = {};
+      matrix[r.dni][r.fecha][r.turno] = r.status;
+    });
+    return matrix;
+  }, [turnoData]);
 
   const attendanceMatrix = useMemo(() => {
     const matrix: Record<string, Record<string, string>> = {};
@@ -173,6 +188,7 @@ export default function AttendanceMatrixPage() {
         <div className="mt-8">
           <EditableAttendanceMatrix
             employees={matrixEmployees} attendanceMatrix={attendanceMatrix}
+            turnoMatrix={turnoMatrix}
             workingDays={workingDays} filters={matrixFilters} setFilters={setMatrixFilters}
             onAttendanceChange={handleAttendanceChange} pendingChanges={pendingChanges}
             onSave={handleSaveChanges} isSaving={isSaving}

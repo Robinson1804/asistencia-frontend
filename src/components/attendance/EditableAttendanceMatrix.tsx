@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 interface EditableAttendanceMatrixProps {
   employees: Employee[];
   attendanceMatrix: Record<string, Record<string, string>>;
+  turnoMatrix?: Record<string, Record<string, Record<number, string>>>;
   workingDays: Date[];
   filters: { name: string; dni: string };
   setFilters: (filters: { name: string; dni: string }) => void;
@@ -26,6 +27,8 @@ interface EditableAttendanceMatrixProps {
   onSave: () => void;
   isSaving: boolean;
 }
+
+const TURNO_LABELS: Record<number, string> = { 1: '8:50am', 2: '12:00pm', 3: '4:00pm' };
 
 const ITEMS_PER_PAGE = 15;
 
@@ -40,6 +43,7 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string; icon: React.Reac
 export function EditableAttendanceMatrix({
   employees,
   attendanceMatrix,
+  turnoMatrix,
   workingDays,
   filters,
   setFilters,
@@ -363,9 +367,24 @@ export function EditableAttendanceMatrix({
                                             {getStatusIcon(currentStatus)}
                                           </div>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>{statusLabels[currentStatus] || currentStatus}</p>
-                                          {hasChange && <p className="text-xs text-primary">Cambio pendiente</p>}
+                                        <TooltipContent side="top" className="max-w-[180px]">
+                                          <p className="font-semibold mb-1">{statusLabels[currentStatus] || currentStatus}</p>
+                                          {turnoMatrix?.[employee.dni]?.[dateStr] && (
+                                            <div className="text-xs space-y-0.5 border-t pt-1 mt-1">
+                                              {[1, 2, 3].map(t => {
+                                                const s = turnoMatrix[employee.dni][dateStr][t];
+                                                return (
+                                                  <div key={t} className="flex justify-between gap-2">
+                                                    <span className="text-muted-foreground">{TURNO_LABELS[t]}:</span>
+                                                    <span className={s === 'Presente' ? 'text-green-500' : s === 'Falta' ? 'text-red-500' : 'text-gray-400'}>
+                                                      {s ?? '—'}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                          {hasChange && <p className="text-xs text-primary mt-1">Cambio pendiente</p>}
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
