@@ -111,6 +111,7 @@ export default function Home() {
     coordinador: e.nombre_coordinador ? { nombre: e.nombre_coordinador } : undefined,
     scrumMaster: e.nombre_scrum_master ? { nombre: e.nombre_scrum_master } : undefined,
     division: e.nombre_division ? { nombre: e.nombre_division } : undefined,
+    tipoContrato: e.tipo_contrato ? { tipo: e.tipo_contrato } : undefined,
   })), [employees]);
 
   const filteredEmployees = useMemo(() => mappedEmployees.filter(e => {
@@ -367,6 +368,19 @@ export default function Home() {
 
           {loadingEmployees && <div className="flex justify-center py-12"><p className="text-muted-foreground">Cargando empleados...</p></div>}
 
+          {/* Paginación superior */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 py-3 mb-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                <ChevronLeft className="h-4 w-4 md:mr-1" /><span className="hidden md:inline">Anterior</span>
+              </Button>
+              <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)</span>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                <span className="hidden md:inline">Siguiente</span><ChevronRight className="h-4 w-4 md:ml-1" />
+              </Button>
+            </div>
+          )}
+
           {/* Vista móvil */}
           <div className="md:hidden space-y-2">
             {(() => {
@@ -407,6 +421,10 @@ export default function Home() {
                 </Button>
               </div>
             )}
+            <Button onClick={handleSaveAttendances} disabled={isSaving} className="w-full mt-2">
+              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? `Guardando ${savingProgress}%` : 'Guardar Registros'}
+            </Button>
           </div>
 
           {/* Vista desktop */}
@@ -452,17 +470,25 @@ export default function Home() {
               </TableBody>
             </Table>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 py-4 border-t">
-                <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                  <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
-                </Button>
-                <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)</span>
-                <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                  Siguiente <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
+            <div className="flex items-center justify-between gap-3 py-4 px-4 border-t">
+              <div className="flex items-center gap-3">
+                {totalPages > 1 && (
+                  <>
+                    <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                      <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
+                    </Button>
+                    <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)</span>
+                    <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                      Siguiente <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
-            )}
+              <Button onClick={handleSaveAttendances} disabled={isSaving} className="min-w-[200px]">
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? `Guardando ${savingProgress}%` : 'Guardar Registros'}
+              </Button>
+            </div>
           </div>
         </section>
       </main>

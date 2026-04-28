@@ -136,6 +136,18 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
                   {employeeNameWithInfo}
                 </div>
               </div>
+              <div className="flex flex-wrap gap-1">
+                {employee.sede?.nombre && (
+                  <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    {employee.sede.nombre}
+                  </span>
+                )}
+                {employee.tipoContrato?.tipo && (
+                  <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                    {employee.tipoContrato.tipo}
+                  </span>
+                )}
+              </div>
               <RadioGroup
                 value={radioValue}
                 onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
@@ -185,11 +197,18 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
         <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
         <TableCell className="font-medium py-4">
           {employeeNameWithInfo}
-          {employee.sede?.nombre && (
-            <span className="mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-              {employee.sede.nombre}
-            </span>
-          )}
+          <div className="mt-1 flex flex-wrap gap-1">
+            {employee.sede?.nombre && (
+              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {employee.sede.nombre}
+              </span>
+            )}
+            {employee.tipoContrato?.tipo && (
+              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                {employee.tipoContrato.tipo}
+              </span>
+            )}
+          </div>
         </TableCell>
         <TableCell className="py-4">
           <RadioGroup

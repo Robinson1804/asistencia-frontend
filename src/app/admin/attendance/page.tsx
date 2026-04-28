@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApiData } from '@/hooks/use-api-data';
 import { apiFetch } from '@/lib/api';
 import { format, startOfDay, eachDayOfInterval, getDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -8,14 +8,18 @@ import type { Employee, Division, Coordinador, ScrumMaster, Proyecto, TipoContra
 import { EditableAttendanceMatrix } from '@/components/attendance/EditableAttendanceMatrix';
 import { Filters } from '@/components/dashboard/Filters';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
-const now = new Date();
-const initialFilters = {
-  dateRange: { from: startOfMonth(now), to: endOfMonth(now) } as { from: Date; to: Date } | undefined,
-  month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
-  division: 'all', coordinador: 'all', scrumMaster: 'all',
-  proyecto: [] as string[], tipoContrato: [] as string[], sede: [] as string[],
-};
+function makeInitialFilters() {
+  const now = new Date();
+  return {
+    dateRange: { from: startOfMonth(now), to: endOfMonth(now) } as { from: Date; to: Date } | undefined,
+    month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+    division: 'all', coordinador: 'all', scrumMaster: 'all',
+    proyecto: [] as string[], tipoContrato: [] as string[], sede: [] as string[],
+  };
+}
 
 function mapEmployee(row: any): Employee {
   return {
@@ -38,7 +42,7 @@ function mapEmployee(row: any): Employee {
 
 export default function AttendanceMatrixPage() {
   const { toast } = useToast();
-  const [filters, setFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState(makeInitialFilters);
   const [matrixFilters, setMatrixFilters] = useState({ name: '', dni: '' });
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,10 +74,7 @@ export default function AttendanceMatrixPage() {
   const workingDays = useMemo(() => {
     const { from, to } = filters.dateRange || {};
     if (!from || !to) return [];
-    const today = startOfDay(new Date());
-    const effectiveTo = to > today ? today : to;
-    if (from > effectiveTo) return [];
-    return eachDayOfInterval({ start: from, end: effectiveTo }).filter(d => { const dw = getDay(d); return dw !== 0 && dw !== 6; });
+    return eachDayOfInterval({ start: from, end: to }).filter(d => { const dw = getDay(d); return dw !== 0 && dw !== 6; });
   }, [filters.dateRange]);
 
   const filteredEmployees = useMemo(() => employeesData.filter((e: Employee) => {
@@ -164,7 +165,7 @@ export default function AttendanceMatrixPage() {
         divisions={divisionsData || []} coordinadores={coordinadoresData || []}
         scrumMasters={scrumMastersData || []} proyectos={proyectosData || []}
         tiposContrato={tiposContratoData || []} sedes={sedesData || []}
-        onClear={() => { setFilters(initialFilters); setMatrixFilters({ name: '', dni: '' }); }}
+        onClear={() => { setFilters(makeInitialFilters()); setMatrixFilters({ name: '', dni: '' }); }}
       />
       {isLoading ? (
         <div className="text-center p-8">Cargando datos...</div>
