@@ -119,11 +119,8 @@ export default function Home() {
     for (const [dni, status] of pendingChanges) {
       if (currentTurnoLoaded.get(dni) !== status) return true;
     }
-    for (const [key] of justifications) {
-      if (!initialJustifications.has(key)) return true;
-    }
     return false;
-  }, [pendingChanges, currentTurnoLoaded, justifications, initialJustifications]);
+  }, [pendingChanges, currentTurnoLoaded]);
 
   const mappedEmployees = useMemo(() => employees.map(e => ({
     ...e,
@@ -204,9 +201,29 @@ export default function Home() {
     });
   };
 
-  const handleJustificationSaved = (justification: Justification & { turno?: TurnoNumber }) => {
+  const handleJustificationSaved = async (justification: Justification & { turno?: TurnoNumber }) => {
     const t = justification.turno ?? selectedTurno;
-    setJustifications(prev => new Map(prev).set(`${justification.employeeId}-${t}`, { ...justification, turno: t }));
+    const emp = employees.find(e => e.dni === justification.employeeId);
+    if (!emp) return;
+    try {
+      await apiFetch('/api/justificaciones', {
+        method: 'POST',
+        body: JSON.stringify({
+          employee_id: emp.id,
+          fecha: format(selectedDate, 'yyyy-MM-dd'),
+          tipo: justification.type,
+          notas: justification.notes,
+          turno: t,
+        }),
+      });
+      const key = `${justification.employeeId}-${t}`;
+      const saved = { ...justification, turno: t };
+      setJustifications(prev => new Map(prev).set(key, saved));
+      setInitialJustifications(prev => new Map(prev).set(key, saved));
+      toast({ title: '✓ Justificación guardada' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Error al guardar justificación' });
+    }
   };
 
   const handleTurnoChange = (turno: TurnoNumber) => {
@@ -227,18 +244,11 @@ export default function Home() {
       const emp = employees.find(e => e.dni === dni);
       if (emp) changes.push({ employee_id: emp.id, status });
     });
-    const justChanges: any[] = [];
-    justifications.forEach((j, key) => {
-      if (initialJustifications.has(key)) return;
-      const emp = employees.find(e => e.dni === j.employeeId);
-      if (emp) justChanges.push({ employee_id: emp.id, fecha: format(selectedDate, 'yyyy-MM-dd'), tipo: j.type, notas: j.notes, turno: j.turno ?? selectedTurno });
-    });
-    if (changes.length === 0 && justChanges.length === 0) { toast({ title: 'Sin cambios' }); return; }
+    if (changes.length === 0) { toast({ title: 'Sin cambios' }); return; }
     setIsSaving(true);
     try {
       const fecha = format(selectedDate, 'yyyy-MM-dd');
-      if (changes.length > 0) await apiFetch('/api/asistencias-turno/batch', { method: 'POST', body: JSON.stringify({ fecha, turno: selectedTurno, records: changes }) });
-      if (justChanges.length > 0) await Promise.all(justChanges.map(j => apiFetch('/api/justificaciones', { method: 'POST', body: JSON.stringify(j) })));
+      await apiFetch('/api/asistencias-turno/batch', { method: 'POST', body: JSON.stringify({ fecha, turno: selectedTurno, records: changes }) });
       await loadTurnoData(selectedDate);
       toast({ title: '✓ Cambios guardados', description: `${changes.length} registros guardados.` });
     } catch {
@@ -471,13 +481,13 @@ export default function Home() {
               Tienes cambios pendientes para el horario {turnoLabel}. ¿Qué deseas hacer?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pt-2">
             <Button onClick={handleSaveAndContinue} disabled={isSaving} className="w-full">
               <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar y continuar'}
             </Button>
             <Button variant="destructive" onClick={handleDiscardAndContinue} className="w-full">Descartar cambios</Button>
             <Button variant="outline" onClick={() => setShowUnsavedModal(false)} className="w-full">Cancelar</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

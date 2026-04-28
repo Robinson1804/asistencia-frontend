@@ -34,6 +34,7 @@ interface EmployeeRowProps {
   selectedDate: Date;
   variant?: 'mobile' | 'desktop';
   readOnly?: boolean;
+  allowEditJustification?: boolean;
 }
 
 const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
@@ -163,7 +164,7 @@ function StatusDisplay({ status }: { status: TurnoStatus | 'No Registrado' }) {
 export function EmployeeRow({
   employee, currentTurno, turnoStatuses, currentStatus,
   onStatusChange, index, currentJustification, onJustificationSaved,
-  selectedDate, variant = 'desktop', readOnly = false
+  selectedDate, variant = 'desktop', readOnly = false, allowEditJustification = false
 }: EmployeeRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -299,6 +300,7 @@ export function EmployeeRow({
           date={selectedDate}
           turno={currentTurno}
           justification={currentJustification}
+          allowEdit={allowEditJustification}
           onJustificationSaved={(justification) => {
             onJustificationSaved(justification);
             setIsModalOpen(false);

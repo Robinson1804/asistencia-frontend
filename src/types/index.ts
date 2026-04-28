@@ -107,7 +107,7 @@ export type TurnoStatus = 'Presente' | 'Falta';
 export type TurnoStatuses = { 1?: TurnoStatus; 2?: TurnoStatus; 3?: TurnoStatus };
 
 export const TURNOS: { turno: TurnoNumber; label: string; short: string; cutoffHour: number }[] = [
-  { turno: 1, label: '8:40am',  short: '8:40',  cutoffHour: 11 },
+  { turno: 1, label: '8:50am',  short: '8:50',  cutoffHour: 11 },
   { turno: 2, label: '12:00pm', short: '12:00', cutoffHour: 15 },
   { turno: 3, label: '4:00pm',  short: '16:00', cutoffHour: 24 },
 ];

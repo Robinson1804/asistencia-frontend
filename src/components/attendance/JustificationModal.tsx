@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,9 +46,11 @@ interface JustificationModalProps {
   turno?: TurnoNumber;
   justification?: Justification;
   onJustificationSaved: (justification: Justification) => void;
+  allowEdit?: boolean;
 }
 
-export function JustificationModal({ isOpen, onClose, employee, date, turno, justification, onJustificationSaved }: JustificationModalProps) {
+export function JustificationModal({ isOpen, onClose, employee, date, turno, justification, onJustificationSaved, allowEdit = false }: JustificationModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<JustificationFormData>({
     resolver: zodResolver(justificationSchema),
@@ -61,6 +63,7 @@ export function JustificationModal({ isOpen, onClose, employee, date, turno, jus
     } else {
       reset({ type: '', notes: '' });
     }
+    setIsEditing(false);
   }, [justification, reset, isOpen]);
 
   const turnoLabel = turno ? TURNOS.find(t => t.turno === turno)?.label : undefined;
@@ -74,10 +77,11 @@ export function JustificationModal({ isOpen, onClose, employee, date, turno, jus
       turno,
     };
     onJustificationSaved(justificationPayload);
+    setIsEditing(false);
     reset();
   };
 
-  const isReadOnly = !!justification;
+  const isReadOnly = !!justification && !isEditing;
 
   const turnoDesc = turnoLabel ? ` (horario ${turnoLabel})` : '';
 
@@ -127,16 +131,21 @@ export function JustificationModal({ isOpen, onClose, employee, date, turno, jus
               {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
             </div>
           </div>
-          <DialogFooter>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
             <DialogClose asChild>
               <Button type="button" variant="secondary">Cerrar</Button>
             </DialogClose>
+            {justification && !isEditing && allowEdit && (
+              <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
+                Editar
+              </Button>
+            )}
             {!isReadOnly && (
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Guardando...' : 'Guardar Justificación'}
               </Button>
             )}
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

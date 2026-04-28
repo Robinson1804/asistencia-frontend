@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { LogOut, Save, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -140,33 +140,30 @@ export default function ScrumPage() {
     };
   }, [filteredEmployees, turnoMap]);
 
-  const hasNewJustifications = useMemo(() => {
-    for (const [key] of justifications) {
-      if (!initialJustifications.has(key)) return true;
-    }
-    return false;
-  }, [justifications, initialJustifications]);
 
-  const handleJustificationSaved = (justification: Justification & { turno?: TurnoNumber }) => {
+  const handleJustificationSaved = async (justification: Justification & { turno?: TurnoNumber }) => {
     const t = justification.turno ?? selectedTurno;
-    setJustifications(prev => new Map(prev).set(`${justification.employeeId}-${t}`, { ...justification, turno: t }));
-  };
-
-  const handleSaveJustifications = async () => {
-    const justChanges: any[] = [];
-    justifications.forEach((j, key) => {
-      if (initialJustifications.has(key)) return;
-      const emp = employees.find(e => e.dni === j.employeeId);
-      if (emp) justChanges.push({ employee_id: emp.id, fecha: format(selectedDate, 'yyyy-MM-dd'), tipo: j.type, notas: j.notes, turno: j.turno ?? selectedTurno });
-    });
-    if (justChanges.length === 0) { toast({ title: 'Sin justificaciones nuevas' }); return; }
+    const emp = employees.find(e => e.dni === justification.employeeId);
+    if (!emp) return;
     setIsSaving(true);
     try {
-      await Promise.all(justChanges.map(j => apiFetch('/api/justificaciones', { method: 'POST', body: JSON.stringify(j) })));
-      await loadTurnoData(selectedDate);
-      toast({ title: '✓ Justificaciones guardadas', description: `${justChanges.length} justificaciones guardadas.` });
+      await apiFetch('/api/justificaciones', {
+        method: 'POST',
+        body: JSON.stringify({
+          employee_id: emp.id,
+          fecha: format(selectedDate, 'yyyy-MM-dd'),
+          tipo: justification.type,
+          notas: justification.notes,
+          turno: t,
+        }),
+      });
+      const key = `${justification.employeeId}-${t}`;
+      const saved = { ...justification, turno: t };
+      setJustifications(prev => new Map(prev).set(key, saved));
+      setInitialJustifications(prev => new Map(prev).set(key, saved));
+      toast({ title: '✓ Justificación guardada' });
     } catch {
-      toast({ variant: 'destructive', title: 'Error al guardar' });
+      toast({ variant: 'destructive', title: 'Error al guardar justificación' });
     } finally { setIsSaving(false); }
   };
 
@@ -194,11 +191,6 @@ export default function ScrumPage() {
           <div className="flex md:hidden items-center justify-between mb-2">
             <h1 className="text-lg font-bold text-primary">Asistencia — Scrum</h1>
             <div className="flex items-center gap-2">
-              {hasNewJustifications && (
-                <Button size="sm" onClick={handleSaveJustifications} disabled={isSaving}>
-                  <Save className="h-4 w-4 mr-1" />{isSaving ? 'Guardando...' : 'Guardar'}
-                </Button>
-              )}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}><LogOut className="h-4 w-4" /></Button>
             </div>
           </div>
@@ -271,11 +263,6 @@ export default function ScrumPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {hasNewJustifications && (
-                <Button onClick={handleSaveJustifications} disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Justificaciones'}
-                </Button>
-              )}
             </div>
           </div>
 
@@ -319,14 +306,9 @@ export default function ScrumPage() {
                 index={(currentPage - 1) * EMPLOYEES_PER_PAGE + idx}
                 currentJustification={justifications.get(`${item.id}-${selectedTurno}`) as any}
                 onJustificationSaved={handleJustificationSaved as any}
-                selectedDate={selectedDate} variant="mobile" readOnly />
+                selectedDate={selectedDate} variant="mobile" readOnly allowEditJustification />
             ))}
             <div className="py-4"><PaginationControls size="sm" /></div>
-            {hasNewJustifications && (
-              <Button onClick={handleSaveJustifications} disabled={isSaving} className="w-full">
-                <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Justificaciones'}
-              </Button>
-            )}
           </div>
 
           {/* Desktop table */}
@@ -348,17 +330,12 @@ export default function ScrumPage() {
                     index={(currentPage - 1) * EMPLOYEES_PER_PAGE + idx}
                     currentJustification={justifications.get(`${item.id}-${selectedTurno}`) as any}
                     onJustificationSaved={handleJustificationSaved as any}
-                    selectedDate={selectedDate} variant="desktop" readOnly />
+                    selectedDate={selectedDate} variant="desktop" readOnly allowEditJustification />
                 ))}
               </TableBody>
             </Table>
             <div className="flex items-center justify-between gap-3 py-4 px-4 border-t">
               <PaginationControls />
-              {hasNewJustifications && (
-                <Button onClick={handleSaveJustifications} disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Justificaciones'}
-                </Button>
-              )}
             </div>
           </div>
         </section>
