@@ -1,31 +1,25 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { AttendanceStatus, Justification } from '@/types';
+import type { Justification, TurnoNumber, TurnoStatus, TurnoStatuses } from '@/types';
+import { TURNOS, getActiveTurno } from '@/types';
 import { AttendanceSummary } from '@/components/attendance/AttendanceSummary';
 import { EmployeeRow } from '@/components/attendance/EmployeeRow';
 import { DatePicker } from '@/components/attendance/DatePicker';
 import { Separator } from '@/components/ui/separator';
 import { useAuthContext } from '@/context/auth-context';
-import { api, apiFetch } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow as UiTableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { LogOut, Save, UserCog, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
+import { LogOut, Save, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
-import Link from 'next/link';
 import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import type { AttendanceStatus } from '@/types';
 
 const EMPLOYEES_PER_PAGE = 22;
 
@@ -44,54 +38,53 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentDate, setCurrentDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [savingProgress, setSavingProgress] = useState(0);
-  const [pendingDate, setPendingDate] = useState<Date | null>(null);
-  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
-  const [attendances, setAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
-  const [initialAttendances, setInitialAttendances] = useState<Map<string, AttendanceStatus>>(new Map());
+  // Turno
+  const [selectedTurno, setSelectedTurno] = useState<TurnoNumber>(() => getActiveTurno());
+  const [pendingTurno, setPendingTurno] = useState<TurnoNumber | null>(null);
+
+  // Data
+  const [allTurnoData, setAllTurnoData] = useState<any[]>([]);
+  const [pendingChanges, setPendingChanges] = useState<Map<string, TurnoStatus>>(new Map());
   const [justifications, setJustifications] = useState<Map<string, Justification>>(new Map());
   const [initialJustifications, setInitialJustifications] = useState<Map<string, Justification>>(new Map());
+
+  // Modal
+  const [pendingDate, setPendingDate] = useState<Date | null>(null);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
   useEffect(() => {
     if (!userLoading && !user) router.push('/login');
     if (!userLoading && user?.role === 'admin') router.push('/admin');
+    if (!userLoading && user?.role === 'scrum_master') router.push('/scrum');
   }, [user, userLoading, router]);
 
   useEffect(() => {
-    Promise.all([api.getEmpleados(), api.getSedes()])
+    Promise.all([apiFetch('/api/empleados'), apiFetch('/api/sedes?activo=true')])
       .then(([emps, sds]) => { setEmployees(emps); setSedes(sds); })
       .finally(() => setLoadingEmployees(false));
   }, []);
 
-  useEffect(() => {
-    const fetchAttendances = async () => {
-      const fecha = format(selectedDate, 'yyyy-MM-dd');
-      try {
-        const [asistencias, justifs] = await Promise.all([
-          apiFetch(`/api/asistencias?fecha=${fecha}`),
-          apiFetch(`/api/justificaciones?fecha=${fecha}`),
-        ]);
-        const attMap = new Map<string, AttendanceStatus>();
-        asistencias.forEach((a: any) => attMap.set(a.dni, a.status));
-        setAttendances(new Map(attMap));
-        setInitialAttendances(new Map(attMap));
+  const loadTurnoData = useCallback(async (date: Date) => {
+    const fecha = format(date, 'yyyy-MM-dd');
+    try {
+      const [turnoData, justifs] = await Promise.all([
+        apiFetch(`/api/asistencias-turno?fecha=${fecha}`),
+        apiFetch(`/api/justificaciones?fecha=${fecha}`),
+      ]);
+      setAllTurnoData(turnoData);
+      const justMap = new Map<string, Justification>();
+      justifs.forEach((j: any) => {
+        const t = j.turno ?? 0;
+        justMap.set(`${j.dni}-${t}`, { employeeId: j.employee_id, date: fecha, type: j.tipo, notes: j.notas, turno: j.turno });
+      });
+      setJustifications(justMap);
+      setInitialJustifications(new Map(justMap));
+      setPendingChanges(new Map());
+    } catch (e) { console.error(e); }
+  }, []);
 
-        const justMap = new Map<string, Justification>();
-        justifs.forEach((j: any) => justMap.set(j.dni, {
-          ...j,
-          employeeId: j.dni,
-          type: j.tipo,
-          notes: j.notas,
-        }));
-        setJustifications(new Map(justMap));
-        setInitialJustifications(new Map(justMap));
-      } catch (e) {
-        toast({ variant: 'destructive', title: 'Error al cargar datos' });
-      }
-    };
-    fetchAttendances();
-  }, [selectedDate]);
+  useEffect(() => { loadTurnoData(selectedDate); }, [selectedDate, loadTurnoData]);
 
   useEffect(() => {
     const opts: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -100,6 +93,37 @@ export default function Home() {
   }, [selectedDate]);
 
   useEffect(() => { setCurrentPage(1); }, [selectedSede, nameFilter, dniFilter]);
+
+  // Derived maps
+  const turnoMap = useMemo(() => {
+    const map = new Map<string, TurnoStatuses>();
+    allTurnoData.forEach(r => {
+      if (!map.has(r.dni)) map.set(r.dni, {});
+      (map.get(r.dni) as any)[r.turno] = r.status;
+    });
+    return map;
+  }, [allTurnoData]);
+
+  const currentTurnoLoaded = useMemo(() => {
+    const map = new Map<string, TurnoStatus>();
+    allTurnoData.filter(r => r.turno === selectedTurno).forEach(r => map.set(r.dni, r.status as TurnoStatus));
+    return map;
+  }, [allTurnoData, selectedTurno]);
+
+  const getEffectiveStatus = useCallback((dni: string): TurnoStatus | 'No Registrado' => {
+    if (pendingChanges.has(dni)) return pendingChanges.get(dni)!;
+    return currentTurnoLoaded.get(dni) ?? 'No Registrado';
+  }, [pendingChanges, currentTurnoLoaded]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    for (const [dni, status] of pendingChanges) {
+      if (currentTurnoLoaded.get(dni) !== status) return true;
+    }
+    for (const [key] of justifications) {
+      if (!initialJustifications.has(key)) return true;
+    }
+    return false;
+  }, [pendingChanges, currentTurnoLoaded, justifications, initialJustifications]);
 
   const mappedEmployees = useMemo(() => employees.map(e => ({
     ...e,
@@ -115,189 +139,174 @@ export default function Home() {
   })), [employees]);
 
   const filteredEmployees = useMemo(() => mappedEmployees.filter(e => {
-    const active = e.activo !== false;
     const sedeMatch = selectedSede === 'todos' || e.nombre_sede === selectedSede;
     const nameMatch = e.apellidosNombres?.toLowerCase().includes(nameFilter.toLowerCase());
     const dniMatch = e.dni?.includes(dniFilter);
-    return active && sedeMatch && nameMatch && dniMatch;
+    return e.activo !== false && sedeMatch && nameMatch && dniMatch;
   }), [mappedEmployees, selectedSede, nameFilter, dniFilter]);
+
+  const inactiveOrdenes = useMemo(() => {
+    const s = new Set<number>();
+    employees.filter(e => e.activo === false && e.orden != null).forEach(e => s.add(parseInt(String(e.orden), 10)));
+    return s;
+  }, [employees]);
+
+  const allWithGaps = useMemo(() => {
+    const sorted = [...filteredEmployees].filter(e => e.orden != null).sort((a, b) => parseInt(String(a.orden)) - parseInt(String(b.orden)));
+    const result: any[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const emp = sorted[i];
+      const empOrden = parseInt(String(emp.orden), 10);
+      if (i > 0) {
+        const prevOrden = parseInt(String(sorted[i - 1].orden), 10);
+        for (let gap = prevOrden + 1; gap < empOrden; gap++) {
+          if (!inactiveOrdenes.has(gap)) result.push({ isGap: true, id: `gap-${gap}`, orden: gap });
+        }
+      }
+      result.push(emp);
+    }
+    return result;
+  }, [filteredEmployees, inactiveOrdenes]);
 
   const totalPages = Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE);
 
-  type GapRow = { isGap: true; orden: number; id: string };
-  type DisplayRow = (typeof filteredEmployees[0] & { isGap: false }) | GapRow;
-
-  // Ordenes ocupados por empleados inactivos — no deben generar gap visual.
-  const inactiveOrdenes = useMemo(() => {
-    const set = new Set<number>();
-    employees.forEach(e => {
-      if (e.activo === false && e.orden) set.add(parseInt(e.orden, 10));
-    });
-    return set;
-  }, [employees]);
-
-  // Inserta filas vacías donde hay saltos en el número de orden.
-  // Solo cuando no hay filtro de nombre/DNI (carece de sentido en búsqueda).
-  // Los ordenes de empleados inactivos no generan gap: ellos tenían ese puesto.
-  const allWithGaps = useMemo((): DisplayRow[] => {
-    if (nameFilter || dniFilter) return filteredEmployees.map(e => ({ ...e, isGap: false as const }));
-    const result: DisplayRow[] = [];
-    console.log('[gaps] inactiveOrdenes:', [...inactiveOrdenes]);
-    console.log('[gaps] filteredEmployees ordenes:', filteredEmployees.map(e => ({ nombre: e.apellidosNombres, orden: e.orden })));
-    filteredEmployees.forEach((emp, i) => {
-      const cur = parseInt(String(emp.orden ?? '0'), 10);
-      const prev = i > 0 ? parseInt(String(filteredEmployees[i - 1].orden ?? '0'), 10) : cur;
-      if (i > 0) {
-        for (let g = prev + 1; g < cur; g++) {
-          if (!inactiveOrdenes.has(g)) {
-            result.push({ isGap: true, orden: g, id: `gap-${g}` });
-          }
-        }
-      }
-      result.push({ ...emp, isGap: false });
-    });
-    console.log('[gaps] result length:', result.length, 'gaps:', result.filter(r => r.isGap).length);
-    return result;
-  }, [filteredEmployees, nameFilter, dniFilter, inactiveOrdenes]);
-
-  // Pagina por cantidad de empleados reales, pero incluye los gaps del rango.
-  const paginatedEmployees = useMemo((): DisplayRow[] => {
+  const paginatedEmployees = useMemo(() => {
     const empStart = (currentPage - 1) * EMPLOYEES_PER_PAGE;
-    const empEnd = empStart + EMPLOYEES_PER_PAGE;
     let empCount = 0;
-    let startIdx = -1;
-    let endIdx = allWithGaps.length;
-    for (let i = 0; i < allWithGaps.length; i++) {
-      const item = allWithGaps[i];
-      if (!item.isGap) {
-        if (empCount === empStart && startIdx === -1) startIdx = i;
+    const result: any[] = [];
+    for (const item of allWithGaps) {
+      if (item.isGap) {
+        const prevPage = Math.floor((empCount - 1) / EMPLOYEES_PER_PAGE);
+        const nextPage = Math.floor(empCount / EMPLOYEES_PER_PAGE);
+        if ((prevPage === currentPage - 1 || nextPage === currentPage - 1) && empCount > empStart - EMPLOYEES_PER_PAGE) {
+          result.push(item);
+        }
+      } else {
+        if (empCount >= empStart && empCount < empStart + EMPLOYEES_PER_PAGE) result.push(item);
         empCount++;
-        if (empCount === empEnd) { endIdx = i + 1; break; }
+        if (empCount >= empStart + EMPLOYEES_PER_PAGE) break;
       }
     }
-    if (startIdx === -1) return [];
-    return allWithGaps.slice(startIdx, endIdx);
+    return result;
   }, [allWithGaps, currentPage]);
 
-  const handleStatusChange = (employeeId: string, status: AttendanceStatus) => {
-    setAttendances(prev => new Map(prev).set(employeeId, status));
+  const attendanceArray = useMemo(() =>
+    filteredEmployees.map(emp => getEffectiveStatus(emp.id) as AttendanceStatus),
+    [filteredEmployees, getEffectiveStatus]
+  );
+
+  // Handlers
+  const handleStatusChange = (dni: string, status: TurnoStatus) => {
+    setPendingChanges(prev => {
+      const next = new Map(prev);
+      currentTurnoLoaded.get(dni) === status ? next.delete(dni) : next.set(dni, status);
+      return next;
+    });
   };
 
-  const handleJustificationSaved = (justification: Justification) => {
-    setJustifications(prev => new Map(prev).set(justification.employeeId, justification));
-    setAttendances(prev => {
-      const current = prev.get(justification.employeeId);
-      const justified: AttendanceStatus = current === 'Tardanza' ? 'Tardanza Justificada' : 'Falta Justificada';
-      return new Map(prev).set(justification.employeeId, justified);
-    });
+  const handleJustificationSaved = (justification: Justification & { turno?: TurnoNumber }) => {
+    const t = justification.turno ?? selectedTurno;
+    setJustifications(prev => new Map(prev).set(`${justification.employeeId}-${t}`, { ...justification, turno: t }));
+  };
+
+  const handleTurnoChange = (turno: TurnoNumber) => {
+    if (turno === selectedTurno) return;
+    if (hasUnsavedChanges) { setPendingTurno(turno); setShowUnsavedModal(true); }
+    else { setSelectedTurno(turno); setPendingChanges(new Map()); }
+  };
+
+  const handleDateChange = (date: Date) => {
+    if (hasUnsavedChanges) { setPendingDate(date); setShowUnsavedModal(true); }
+    else setSelectedDate(date);
   };
 
   const handleSaveAttendances = async () => {
     const changes: any[] = [];
-
-    attendances.forEach((status, dni) => {
-      if (initialAttendances.get(dni) === status) return;
+    pendingChanges.forEach((status, dni) => {
+      if (currentTurnoLoaded.get(dni) === status) return;
       const emp = employees.find(e => e.dni === dni);
       if (emp) changes.push({ employee_id: emp.id, status });
     });
-
     const justChanges: any[] = [];
-    justifications.forEach((j, dni) => {
-      if (initialJustifications.has(dni)) return;
-      const emp = employees.find(e => e.dni === dni);
-      if (emp) justChanges.push({ employee_id: emp.id, fecha: format(selectedDate, 'yyyy-MM-dd'), tipo: j.type || 'Justificación', notas: j.notes || '' });
+    justifications.forEach((j, key) => {
+      if (initialJustifications.has(key)) return;
+      const emp = employees.find(e => e.dni === j.employeeId);
+      if (emp) justChanges.push({ employee_id: emp.id, fecha: format(selectedDate, 'yyyy-MM-dd'), tipo: j.type, notas: j.notes, turno: j.turno ?? selectedTurno });
     });
-
-    if (changes.length === 0 && justChanges.length === 0) {
-      toast({ title: 'Sin cambios' });
-      return;
-    }
-
+    if (changes.length === 0 && justChanges.length === 0) { toast({ title: 'Sin cambios' }); return; }
     setIsSaving(true);
     try {
       const fecha = format(selectedDate, 'yyyy-MM-dd');
-      if (changes.length > 0) {
-        await apiFetch('/api/asistencias/batch', { method: 'POST', body: JSON.stringify({ fecha, records: changes }) });
-        setSavingProgress(50);
-      }
-      if (justChanges.length > 0) {
-        await Promise.all(justChanges.map(j => api.createJustificacion(j)));
-      }
-      setInitialAttendances(new Map(attendances));
-      setInitialJustifications(new Map(justifications));
-      setSavingProgress(100);
+      if (changes.length > 0) await apiFetch('/api/asistencias-turno/batch', { method: 'POST', body: JSON.stringify({ fecha, turno: selectedTurno, records: changes }) });
+      if (justChanges.length > 0) await Promise.all(justChanges.map(j => apiFetch('/api/justificaciones', { method: 'POST', body: JSON.stringify(j) })));
+      await loadTurnoData(selectedDate);
       toast({ title: '✓ Cambios guardados', description: `${changes.length} registros guardados.` });
     } catch {
       toast({ variant: 'destructive', title: 'Error al guardar' });
-    } finally {
-      setIsSaving(false);
-      setSavingProgress(0);
-    }
-  };
-
-  const hasUnsavedChanges = useMemo(() => {
-    for (const [dni, status] of attendances) {
-      if (initialAttendances.get(dni) !== status) return true;
-    }
-    for (const [dni] of justifications) {
-      if (!initialJustifications.has(dni)) return true;
-    }
-    return false;
-  }, [attendances, initialAttendances, justifications, initialJustifications]);
-
-  const handleDateChange = (date: Date) => {
-    if (hasUnsavedChanges) {
-      setPendingDate(date);
-      setShowUnsavedModal(true);
-    } else {
-      setSelectedDate(date);
-    }
+    } finally { setIsSaving(false); }
   };
 
   const handleSaveAndContinue = async () => {
     await handleSaveAttendances();
-    if (pendingDate) {
-      setSelectedDate(pendingDate);
-      setPendingDate(null);
-    }
+    if (pendingDate) { setSelectedDate(pendingDate); setPendingDate(null); }
+    else if (pendingTurno) { setSelectedTurno(pendingTurno); setPendingTurno(null); setPendingChanges(new Map()); }
     setShowUnsavedModal(false);
   };
 
   const handleDiscardAndContinue = () => {
-    if (pendingDate) {
-      setSelectedDate(pendingDate);
-      setPendingDate(null);
-    }
+    setPendingChanges(new Map());
+    if (pendingDate) { setSelectedDate(pendingDate); setPendingDate(null); }
+    else if (pendingTurno) { setSelectedTurno(pendingTurno); setPendingTurno(null); }
     setShowUnsavedModal(false);
   };
 
   const handleLogout = () => { logout(); router.push('/login'); };
-  const attendanceArray = Array.from(attendances.values());
 
   if (userLoading) return <div className="flex items-center justify-center min-h-screen"><p>Cargando...</p></div>;
   if (!user || user.role === 'admin') return <div className="flex items-center justify-center min-h-screen"><p>Redirigiendo...</p></div>;
+
+  const turnoLabel = TURNOS.find(t => t.turno === selectedTurno)?.label ?? '';
+
+  const TurnoSelector = ({ className = '' }: { className?: string }) => (
+    <div className={`flex gap-2 ${className}`}>
+      {TURNOS.map(t => (
+        <Button key={t.turno} variant={selectedTurno === t.turno ? 'default' : 'outline'}
+          size="sm" onClick={() => handleTurnoChange(t.turno)}>
+          {t.label}
+        </Button>
+      ))}
+    </div>
+  );
+
+  const PaginationControls = ({ size = 'default' }: { size?: 'sm' | 'default' }) => totalPages > 1 ? (
+    <div className="flex items-center justify-center gap-3">
+      <Button variant="outline" size={size} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+        <ChevronLeft className="h-4 w-4" />{size === 'default' && <span className="ml-1">Anterior</span>}
+      </Button>
+      <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)</span>
+      <Button variant="outline" size={size} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+        {size === 'default' && <span className="mr-1">Siguiente</span>}<ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  ) : null;
 
   return (
     <div className="min-h-screen bg-background/80 backdrop-blur-sm">
       <header className="bg-card shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-3 py-3 md:p-4">
+          {/* Mobile */}
           <div className="flex md:hidden items-center justify-between mb-2">
             <h1 className="text-lg font-bold text-primary">Permanencia OTIN</h1>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleSaveAttendances} disabled={isSaving}>
-                <Save className="h-4 w-4 mr-1" />
-                {isSaving ? 'Guardando...' : 'Guardar'}
+                <Save className="h-4 w-4 mr-1" />{isSaving ? 'Guardando...' : 'Guardar'}
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
-                <LogOut className="h-4 w-4" />
-              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}><LogOut className="h-4 w-4" /></Button>
             </div>
           </div>
           <div className="flex md:hidden gap-2 mb-2">
             <Select value={selectedSede} onValueChange={setSelectedSede}>
-              <SelectTrigger className="flex-1 h-8 text-xs">
-                <SelectValue placeholder="Todas las sedes" />
-              </SelectTrigger>
+              <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todas las sedes</SelectItem>
                 {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
@@ -305,14 +314,19 @@ export default function Home() {
             </Select>
             <DatePicker date={selectedDate} setDate={handleDateChange} />
           </div>
+          <div className="flex md:hidden gap-1">
+            {TURNOS.map(t => (
+              <Button key={t.turno} size="sm" variant={selectedTurno === t.turno ? 'default' : 'outline'}
+                className="flex-1 text-xs h-7" onClick={() => handleTurnoChange(t.turno)}>{t.short}</Button>
+            ))}
+          </div>
+          {/* Desktop */}
           <div className="hidden md:flex justify-between items-center">
             <div className="flex-1" />
             <h1 className="text-2xl font-bold text-primary text-center">Permanencia OTIN</h1>
             <div className="flex-1 flex items-center justify-end gap-4">
               <span className="text-sm text-muted-foreground">{user.email}</span>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                <LogOut className="h-5 w-5" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5" /></Button>
             </div>
           </div>
         </div>
@@ -330,19 +344,15 @@ export default function Home() {
         <Separator className="my-6 md:my-8 bg-border/50" />
 
         <section>
-          <div className="hidden md:flex justify-between items-center mb-6 gap-4">
+          {/* Desktop top bar */}
+          <div className="hidden md:flex justify-between items-center mb-4 gap-4">
             <h2 className="text-3xl font-bold">Lista de Personal</h2>
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label>Fecha:</Label>
-                <DatePicker date={selectedDate} setDate={handleDateChange} />
-              </div>
+              <div className="flex items-center gap-2"><Label>Fecha:</Label><DatePicker date={selectedDate} setDate={handleDateChange} /></div>
               <div className="flex items-center gap-2">
                 <Label>Sede:</Label>
                 <Select value={selectedSede} onValueChange={setSelectedSede}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Todas las sedes" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todas las sedes</SelectItem>
                     {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
@@ -350,13 +360,20 @@ export default function Home() {
                 </Select>
               </div>
               <Button onClick={handleSaveAttendances} disabled={isSaving} className="min-w-[200px]">
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? `Guardando ${savingProgress}%` : 'Guardar Registros'}
+                <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Registros'}
               </Button>
             </div>
           </div>
 
-          <div className="mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center">
+          {/* Turno selector (desktop) */}
+          <div className="hidden md:flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg border">
+            <span className="text-sm font-medium text-muted-foreground">Horario de registro:</span>
+            <TurnoSelector />
+            <span className="text-xs text-muted-foreground ml-auto">Registrando horario {turnoLabel}</span>
+          </div>
+
+          {/* Filters */}
+          <div className="mb-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
             <Input placeholder="Filtrar por apellidos y nombres..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className="max-w-sm" />
             <Input placeholder="Filtrar por DNI..." value={dniFilter} onChange={e => setDniFilter(e.target.value)} className="max-w-xs" />
             {(nameFilter || dniFilter || selectedSede !== 'todos') && (
@@ -368,125 +385,76 @@ export default function Home() {
 
           {loadingEmployees && <div className="flex justify-center py-12"><p className="text-muted-foreground">Cargando empleados...</p></div>}
 
-          {/* Paginación superior */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 py-3 mb-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                <ChevronLeft className="h-4 w-4 md:mr-1" /><span className="hidden md:inline">Anterior</span>
-              </Button>
-              <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)</span>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                <span className="hidden md:inline">Siguiente</span><ChevronRight className="h-4 w-4 md:ml-1" />
-              </Button>
-            </div>
-          )}
+          {/* Top pagination */}
+          <div className="py-3 mb-2"><PaginationControls size="sm" /></div>
 
-          {/* Vista móvil */}
+          {/* Mobile list */}
           <div className="md:hidden space-y-2">
             {(() => {
               let empSeq = (currentPage - 1) * EMPLOYEES_PER_PAGE;
               return paginatedEmployees.map(item => {
-                if (item.isGap) {
-                  return (
-                    <div key={item.id} className="flex items-center gap-3 px-4 py-2 rounded border border-dashed border-border/40 bg-muted/20">
-                      <span className="text-xs text-muted-foreground/50 w-6">{item.orden}</span>
-                      <span className="text-xs text-muted-foreground/40 italic">— asiento vacío —</span>
-                    </div>
-                  );
-                }
+                if (item.isGap) return (
+                  <div key={item.id} className="flex items-center gap-3 px-4 py-2 rounded border border-dashed border-border/40 bg-muted/20">
+                    <span className="text-xs text-muted-foreground/50 w-6">{item.orden}</span>
+                    <span className="text-xs text-muted-foreground/40 italic">— asiento vacío —</span>
+                  </div>
+                );
                 const idx = empSeq++;
                 return (
-                  <EmployeeRow
-                    key={item.id}
-                    employee={item}
-                    currentStatus={attendances.get(item.id) || 'No Registrado'}
-                    onStatusChange={handleStatusChange}
-                    index={idx}
-                    currentJustification={justifications.get(item.id)}
-                    onJustificationSaved={handleJustificationSaved}
-                    selectedDate={selectedDate}
-                    variant="mobile"
-                  />
+                  <EmployeeRow key={item.id} employee={item} currentTurno={selectedTurno}
+                    turnoStatuses={turnoMap.get(item.id) ?? {}}
+                    currentStatus={getEffectiveStatus(item.id)}
+                    onStatusChange={handleStatusChange} index={idx}
+                    currentJustification={justifications.get(`${item.id}-${selectedTurno}`) as any}
+                    onJustificationSaved={handleJustificationSaved as any}
+                    selectedDate={selectedDate} variant="mobile" />
                 );
               });
             })()}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 py-4">
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground">Pág. {currentPage}/{totalPages} ({filteredEmployees.length})</span>
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            <Button onClick={handleSaveAttendances} disabled={isSaving} className="w-full mt-2">
-              <Save className="mr-2 h-4 w-4" />
-              {isSaving ? `Guardando ${savingProgress}%` : 'Guardar Registros'}
+            <div className="py-4"><PaginationControls size="sm" /></div>
+            <Button onClick={handleSaveAttendances} disabled={isSaving} className="w-full">
+              <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Registros'}
             </Button>
           </div>
 
-          {/* Vista desktop */}
+          {/* Desktop table */}
           <div className="hidden md:block rounded-lg border bg-card shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <UiTableRow>
                   <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Apellidos y Nombres</TableHead>
-                  <TableHead className="text-center w-[440px]">Estado del Registro</TableHead>
+                  <TableHead className="text-center w-[500px]">Horario {turnoLabel} — Registro</TableHead>
                 </UiTableRow>
               </TableHeader>
               <TableBody>
                 {(() => {
                   let empSeq = (currentPage - 1) * EMPLOYEES_PER_PAGE;
                   return paginatedEmployees.map(item => {
-                    if (item.isGap) {
-                      return (
-                        <UiTableRow key={item.id} className="border-dashed bg-muted/10 hover:bg-muted/10">
-                          <TableCell className="text-muted-foreground/40 text-xs py-2">{item.orden}</TableCell>
-                          <TableCell className="text-muted-foreground/40 text-xs italic py-2" colSpan={2}>
-                            — asiento vacío —
-                          </TableCell>
-                        </UiTableRow>
-                      );
-                    }
+                    if (item.isGap) return (
+                      <UiTableRow key={item.id} className="border-dashed bg-muted/10 hover:bg-muted/10">
+                        <TableCell className="text-muted-foreground/40 text-xs py-2">{item.orden}</TableCell>
+                        <TableCell className="text-muted-foreground/40 text-xs italic py-2" colSpan={2}>— asiento vacío —</TableCell>
+                      </UiTableRow>
+                    );
                     const idx = empSeq++;
                     return (
-                      <EmployeeRow
-                        key={item.id}
-                        employee={item}
-                        currentStatus={attendances.get(item.id) || 'No Registrado'}
-                        onStatusChange={handleStatusChange}
-                        index={idx}
-                        currentJustification={justifications.get(item.id)}
-                        onJustificationSaved={handleJustificationSaved}
-                        selectedDate={selectedDate}
-                        variant="desktop"
-                      />
+                      <EmployeeRow key={item.id} employee={item} currentTurno={selectedTurno}
+                        turnoStatuses={turnoMap.get(item.id) ?? {}}
+                        currentStatus={getEffectiveStatus(item.id)}
+                        onStatusChange={handleStatusChange} index={idx}
+                        currentJustification={justifications.get(`${item.id}-${selectedTurno}`) as any}
+                        onJustificationSaved={handleJustificationSaved as any}
+                        selectedDate={selectedDate} variant="desktop" />
                     );
                   });
                 })()}
               </TableBody>
             </Table>
-
             <div className="flex items-center justify-between gap-3 py-4 px-4 border-t">
-              <div className="flex items-center gap-3">
-                {totalPages > 1 && (
-                  <>
-                    <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                      <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
-                    </Button>
-                    <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages} ({filteredEmployees.length} empleados)</span>
-                    <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                      Siguiente <ChevronRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-              </div>
+              <PaginationControls />
               <Button onClick={handleSaveAttendances} disabled={isSaving} className="min-w-[200px]">
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? `Guardando ${savingProgress}%` : 'Guardar Registros'}
+                <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Registros'}
               </Button>
             </div>
           </div>
@@ -494,28 +462,22 @@ export default function Home() {
       </main>
 
       <Dialog open={showUnsavedModal} onOpenChange={(open) => { if (!open) setShowUnsavedModal(false); }}>
-        <DialogContent className="max-w-[360px] sm:max-w-[420px]">
+        <DialogContent className="max-w-[360px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              Cambios sin guardar
+              <AlertTriangle className="h-5 w-5 text-yellow-500" /> Cambios sin guardar
             </DialogTitle>
             <DialogDescription>
-              Tienes registros modificados que no se han guardado. ¿Qué deseas hacer antes de cambiar de fecha?
+              Tienes cambios pendientes para el horario {turnoLabel}. ¿Qué deseas hacer?
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-2">
+          <DialogFooter className="flex flex-col gap-2">
             <Button onClick={handleSaveAndContinue} disabled={isSaving} className="w-full">
-              <Save className="mr-2 h-4 w-4" />
-              {isSaving ? 'Guardando...' : 'Guardar y continuar'}
+              <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar y continuar'}
             </Button>
-            <Button variant="destructive" onClick={handleDiscardAndContinue} className="w-full">
-              Descartar cambios
-            </Button>
-            <Button variant="outline" onClick={() => setShowUnsavedModal(false)} className="w-full">
-              Cancelar
-            </Button>
-          </div>
+            <Button variant="destructive" onClick={handleDiscardAndContinue} className="w-full">Descartar cambios</Button>
+            <Button variant="outline" onClick={() => setShowUnsavedModal(false)} className="w-full">Cancelar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

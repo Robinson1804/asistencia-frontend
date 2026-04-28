@@ -29,6 +29,8 @@ export default function LoginPage() {
       });
       if (user.role === 'admin') {
         router.push('/admin');
+      } else if (user.role === 'scrum_master') {
+        router.push('/scrum');
       } else {
         router.push('/');
       }

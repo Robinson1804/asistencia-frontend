@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Employee, AttendanceStatus, Justification } from "@/types";
+import type { Employee, Justification, TurnoNumber, TurnoStatus, TurnoStatuses } from '@/types';
+import { TURNOS, computeDailyStatus } from '@/types';
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Clock, XCircle, AlertCircle, FileText } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -24,13 +24,16 @@ import { JustificationModal } from './JustificationModal';
 
 interface EmployeeRowProps {
   employee: Employee;
-  currentStatus: AttendanceStatus;
-  onStatusChange: (employeeId: string, status: AttendanceStatus) => void;
+  currentTurno: TurnoNumber;
+  turnoStatuses: TurnoStatuses;
+  currentStatus: TurnoStatus | 'No Registrado';
+  onStatusChange: (employeeId: string, status: TurnoStatus) => void;
   index: number;
   currentJustification?: Justification;
   onJustificationSaved: (justification: Justification) => void;
   selectedDate: Date;
   variant?: 'mobile' | 'desktop';
+  readOnly?: boolean;
 }
 
 const InfoTooltipContent = ({ employee }: { employee: Employee }) => (
@@ -97,22 +100,82 @@ function getContractBadgeClass(tipo: string): string {
   return 'bg-gray-100 text-gray-600 border-gray-200';
 }
 
-export function EmployeeRow({ employee, currentStatus, onStatusChange, index, currentJustification, onJustificationSaved, selectedDate, variant = 'desktop' }: EmployeeRowProps) {
+function TurnoIndicators({ statuses, currentTurno }: { statuses: TurnoStatuses; currentTurno: TurnoNumber }) {
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      {TURNOS.map(t => {
+        const s = statuses[t.turno];
+        const isActive = t.turno === currentTurno;
+        return (
+          <TooltipProvider key={t.turno}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={cn(
+                  'inline-flex items-center justify-center w-5 h-5 rounded-full text-[8px] font-bold border',
+                  isActive && 'ring-1 ring-offset-1 ring-primary',
+                  s === 'Presente' ? 'bg-green-500 text-white border-green-600'
+                    : s === 'Falta' ? 'bg-red-500 text-white border-red-600'
+                    : 'bg-gray-200 text-gray-500 border-gray-300'
+                )}>
+                  {t.turno}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">{t.label}: {s ?? 'No registrado'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      })}
+    </div>
+  );
+}
+
+function DailyStatusBadge({ statuses }: { statuses: TurnoStatuses }) {
+  const daily = computeDailyStatus(statuses);
+  if (!daily) return null;
+  const cls = daily === 'Presente'
+    ? 'bg-green-100 text-green-700 border-green-200'
+    : daily === 'Tardanza'
+    ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    : 'bg-red-100 text-red-700 border-red-200';
+  return (
+    <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded border ml-1 ${cls}`}>
+      Día: {daily}
+    </span>
+  );
+}
+
+function StatusDisplay({ status }: { status: TurnoStatus | 'No Registrado' }) {
+  if (status === 'Presente') return (
+    <span className="flex items-center gap-1 text-green-600 font-medium text-sm">
+      <CheckCircle2 className="h-4 w-4" /> Presente
+    </span>
+  );
+  if (status === 'Falta') return (
+    <span className="flex items-center gap-1 text-red-600 font-medium text-sm">
+      <XCircle className="h-4 w-4" /> Falta
+    </span>
+  );
+  return <span className="text-muted-foreground text-sm italic">No registrado</span>;
+}
+
+export function EmployeeRow({
+  employee, currentTurno, turnoStatuses, currentStatus,
+  onStatusChange, index, currentJustification, onJustificationSaved,
+  selectedDate, variant = 'desktop', readOnly = false
+}: EmployeeRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  const statusOptions: { value: AttendanceStatus; label: string; icon: React.ElementType, color: string, borderColor: string }[] = [
-    { value: 'Presente', label: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
-    { value: 'Tardanza', label: 'Tardanza', icon: Clock, color: 'text-yellow-500', borderColor: 'border-yellow-500' },
-    { value: 'Falta', label: 'Falta', icon: XCircle, color: 'text-destructive', borderColor: 'border-destructive' },
+
+  const statusOptions: { value: TurnoStatus; icon: React.ElementType; color: string; borderColor: string }[] = [
+    { value: 'Presente', icon: CheckCircle2, color: 'text-green-500', borderColor: 'border-green-500' },
+    { value: 'Falta', icon: XCircle, color: 'text-destructive', borderColor: 'border-destructive' },
   ];
 
   const employeeName = employee.apellidosNombres || "Empleado";
-
   const groupIndex = Math.floor(index / 11);
   const rowColorClass = groupIndex % 2 === 1 ? 'bg-muted/50' : 'bg-card';
-
-  const isJustifiable = currentStatus === 'Falta' || currentStatus === 'Tardanza' || currentStatus === 'Falta Justificada' || currentStatus === 'Tardanza Justificada';
-  const radioValue = currentStatus === 'Falta Justificada' ? 'Falta' : currentStatus === 'Tardanza Justificada' ? 'Tardanza' : currentStatus;
+  const isFalta = currentStatus === 'Falta';
 
   const employeeNameWithInfo = (
     <div className="flex items-center gap-2">
@@ -121,20 +184,74 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
     </div>
   );
 
+  const badges = (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {employee.sede?.nombre && (
+        <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+          {employee.sede.nombre}
+        </span>
+      )}
+      {employee.tipoContrato?.tipo && (
+        <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getContractBadgeClass(employee.tipoContrato.tipo)}`}>
+          {employee.tipoContrato.tipo}
+        </span>
+      )}
+    </div>
+  );
+
+  const turnoIndicatorsWithStatus = (
+    <div className="flex items-center gap-2 mt-1">
+      <TurnoIndicators statuses={turnoStatuses} currentTurno={currentTurno} />
+      <DailyStatusBadge statuses={turnoStatuses} />
+    </div>
+  );
+
   const justificationButton = (isMobile = false) => (
-    <div key="justificar">
-      <Label
-        onClick={() => setIsModalOpen(true)}
-        className={cn(
-            "flex flex-col items-center justify-center rounded-md border-2 bg-popover p-2 text-xs font-medium cursor-pointer transition-colors duration-200",
-            "border-blue-500 text-blue-500 hover:bg-blue-500/10",
-            isMobile ? "h-20 gap-2" : "h-16",
-            currentJustification && "border-gray-400 text-gray-400 bg-gray-50 hover:bg-gray-100"
-        )}
-      >
-          <FileText className={cn("mb-1", isMobile ? "h-6 w-6" : "h-5 w-5")} />
-          <span>{currentJustification ? 'Justificado' : 'Justificar'}</span>
-      </Label>
+    <button
+      type="button"
+      onClick={() => setIsModalOpen(true)}
+      className={cn(
+        "flex flex-col items-center justify-center rounded-md border-2 p-2 text-xs font-medium cursor-pointer transition-colors duration-200",
+        isMobile ? "h-20 gap-2 min-w-[60px]" : "h-16 min-w-[56px]",
+        currentJustification
+          ? "border-gray-400 text-gray-400 bg-gray-50 hover:bg-gray-100"
+          : "border-blue-500 text-blue-500 hover:bg-blue-500/10"
+      )}
+    >
+      <FileText className={cn("mb-1", isMobile ? "h-6 w-6" : "h-5 w-5")} />
+      <span>{currentJustification ? 'Justificado' : 'Justificar'}</span>
+    </button>
+  );
+
+  const statusButtons = (isMobile = false) => (
+    <div className={cn("flex gap-2", isMobile && "flex-wrap")}>
+      {statusOptions.map(option => {
+        const isSelected = currentStatus === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => !readOnly && onStatusChange(employee.id, option.value)}
+            disabled={readOnly}
+            className={cn(
+              "flex flex-col items-center justify-center rounded-md border-2 font-medium transition-all duration-200",
+              isMobile ? "h-20 gap-2 min-w-[70px] text-xs p-3" : "h-16 min-w-[80px] text-xs p-2",
+              isSelected
+                ? `${option.borderColor} bg-accent/10 shadow-inner`
+                : "border-muted text-muted-foreground bg-popover hover:bg-accent/10",
+              readOnly && "cursor-default opacity-75"
+            )}
+          >
+            <option.icon className={cn(
+              "transition-colors",
+              isMobile ? "h-6 w-6" : "h-5 w-5 mb-1",
+              isSelected ? option.color : ""
+            )} />
+            {option.value}
+          </button>
+        );
+      })}
+      {(isFalta || (readOnly && currentJustification)) && justificationButton(isMobile)}
     </div>
   );
 
@@ -144,7 +261,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
       <>
         <div className={rowColorClass}>
           <Card className="p-4 shadow-sm border-0">
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="font-medium text-sm leading-tight flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-muted-foreground text-xs w-6">{index + 1}.</span>
@@ -158,33 +275,19 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
                   </span>
                 )}
                 {employee.tipoContrato?.tipo && (
-                  <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                  <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getContractBadgeClass(employee.tipoContrato.tipo)}`}>
                     {employee.tipoContrato.tipo}
                   </span>
                 )}
               </div>
-              <RadioGroup
-                value={radioValue}
-                onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
-                className="grid grid-cols-4 gap-2"
-              >
-                {statusOptions.map((option) => (
-                  <div key={option.value}>
-                    <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}-mobile`} className="sr-only" />
-                    <Label
-                      htmlFor={`${employee.id}-${option.value}-mobile`}
-                      className={cn(
-                        "flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-3 text-xs font-medium hover:bg-accent/20 cursor-pointer transition-all duration-200 h-20 gap-2",
-                        radioValue === option.value ? `${option.borderColor} bg-accent/10 shadow-md scale-105` : "text-muted-foreground hover:scale-105"
-                      )}
-                    >
-                      <option.icon className={cn("h-6 w-6 transition-colors", radioValue === option.value ? option.color : "")} />
-                      <span className="text-[10px] font-semibold">{option.label}</span>
-                    </Label>
+              {turnoIndicatorsWithStatus}
+              {readOnly
+                ? <div className="flex items-center gap-2">
+                    <StatusDisplay status={currentStatus} />
+                    {(isFalta || currentJustification) && justificationButton(true)}
                   </div>
-                ))}
-                {isJustifiable && justificationButton(true)}
-              </RadioGroup>
+                : statusButtons(true)
+              }
             </div>
           </Card>
         </div>
@@ -194,7 +297,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
           onClose={() => setIsModalOpen(false)}
           employee={employee}
           date={selectedDate}
-          status={currentStatus}
+          turno={currentTurno}
           justification={currentJustification}
           onJustificationSaved={(justification) => {
             onJustificationSaved(justification);
@@ -212,42 +315,17 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
         <TableCell className="w-[50px] font-medium py-4 text-muted-foreground">{index + 1}</TableCell>
         <TableCell className="font-medium py-4">
           {employeeNameWithInfo}
-          <div className="mt-1 flex flex-wrap gap-1">
-            {employee.sede?.nombre && (
-              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                {employee.sede.nombre}
-              </span>
-            )}
-            {employee.tipoContrato?.tipo && (
-              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getContractBadgeClass(employee.tipoContrato.tipo)}`}>
-                {employee.tipoContrato.tipo}
-              </span>
-            )}
-          </div>
+          {badges}
+          {turnoIndicatorsWithStatus}
         </TableCell>
         <TableCell className="py-4">
-          <RadioGroup
-            value={currentStatus}
-            onValueChange={(value) => onStatusChange(employee.id, value as AttendanceStatus)}
-            className="grid grid-cols-4 gap-2"
-          >
-            {statusOptions.map((option) => (
-              <div key={option.value}>
-                <RadioGroupItem value={option.value} id={`${employee.id}-${option.value}`} className="sr-only" />
-                <Label
-                  htmlFor={`${employee.id}-${option.value}`}
-                  className={cn(
-                    "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-xs font-medium hover:bg-accent/10 cursor-pointer transition-colors duration-200 h-16",
-                    radioValue === option.value ? `${option.borderColor} bg-accent/10 shadow-inner` : "text-muted-foreground"
-                  )}
-                >
-                  <option.icon className={cn("h-5 w-5 mb-1 transition-colors", radioValue === option.value ? option.color : "")} />
-                  {option.label}
-                </Label>
+          {readOnly
+            ? <div className="flex items-center gap-3">
+                <StatusDisplay status={currentStatus} />
+                {(isFalta || currentJustification) && justificationButton(false)}
               </div>
-            ))}
-            {isJustifiable && justificationButton(false)}
-          </RadioGroup>
+            : statusButtons(false)
+          }
         </TableCell>
       </TableRow>
 
@@ -256,7 +334,7 @@ export function EmployeeRow({ employee, currentStatus, onStatusChange, index, cu
         onClose={() => setIsModalOpen(false)}
         employee={employee}
         date={selectedDate}
-        status={currentStatus}
+        turno={currentTurno}
         justification={currentJustification}
         onJustificationSaved={(justification) => {
           onJustificationSaved(justification);

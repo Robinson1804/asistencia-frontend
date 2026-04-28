@@ -95,10 +95,37 @@ export interface AttendanceRecord  {
 export interface Justification {
   id?: string;
   employeeId: string;
-  date: any; // Timestamp
+  date: any;
   type: string;
   notes: string;
-  createdAt?: any; // Timestamp will be optional until saved
+  turno?: TurnoNumber;
+  createdAt?: any;
+}
+
+export type TurnoNumber = 1 | 2 | 3;
+export type TurnoStatus = 'Presente' | 'Falta';
+export type TurnoStatuses = { 1?: TurnoStatus; 2?: TurnoStatus; 3?: TurnoStatus };
+
+export const TURNOS: { turno: TurnoNumber; label: string; short: string; cutoffHour: number }[] = [
+  { turno: 1, label: '8:40am',  short: '8:40',  cutoffHour: 11 },
+  { turno: 2, label: '12:00pm', short: '12:00', cutoffHour: 15 },
+  { turno: 3, label: '4:00pm',  short: '16:00', cutoffHour: 24 },
+];
+
+export function getActiveTurno(): TurnoNumber {
+  const h = new Date().getHours();
+  if (h < 11) return 1;
+  if (h < 15) return 2;
+  return 3;
+}
+
+export function computeDailyStatus(ts: TurnoStatuses): string | null {
+  if (!ts[1] && !ts[2] && !ts[3]) return null;
+  if (!ts[1] || !ts[2] || !ts[3]) return null; // Not all registered
+  const present = [ts[1], ts[2], ts[3]].filter(s => s === 'Presente').length;
+  if (present === 3) return 'Presente';
+  if (present === 2) return 'Tardanza';
+  return 'Falta';
 }
 
 export interface Sede {

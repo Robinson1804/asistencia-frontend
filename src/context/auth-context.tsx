@@ -5,7 +5,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface AuthUser {
   id: string;
   email: string;
-  role: 'admin' | 'registrador';
+  role: 'admin' | 'registrador' | 'scrum_master';
+  scrumMasterId?: string | null;
 }
 
 interface AuthContextState {

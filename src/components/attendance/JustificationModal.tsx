@@ -18,7 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import type { Employee, Justification, AttendanceStatus } from '@/types';
+import type { Employee, Justification, TurnoNumber } from '@/types';
+import { TURNOS } from '@/types';
 import { format } from 'date-fns';
 
 const justificationSchema = z.object({
@@ -42,34 +43,27 @@ interface JustificationModalProps {
   onClose: () => void;
   employee: Employee;
   date: Date;
-  status: AttendanceStatus;
+  turno?: TurnoNumber;
   justification?: Justification;
   onJustificationSaved: (justification: Justification) => void;
 }
 
-export function JustificationModal({ isOpen, onClose, employee, date, status, justification, onJustificationSaved }: JustificationModalProps) {
-  
+export function JustificationModal({ isOpen, onClose, employee, date, turno, justification, onJustificationSaved }: JustificationModalProps) {
+
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<JustificationFormData>({
     resolver: zodResolver(justificationSchema),
-    defaultValues: {
-      type: '',
-      notes: '',
-    },
+    defaultValues: { type: '', notes: '' },
   });
 
   useEffect(() => {
     if (justification) {
-      reset({
-        type: justification.type,
-        notes: justification.notes,
-      });
+      reset({ type: justification.type, notes: justification.notes });
     } else {
-        reset({
-            type: '',
-            notes: ''
-        });
+      reset({ type: '', notes: '' });
     }
   }, [justification, reset, isOpen]);
+
+  const turnoLabel = turno ? TURNOS.find(t => t.turno === turno)?.label : undefined;
 
   const onSubmit = async (data: JustificationFormData) => {
     const justificationPayload: Justification = {
@@ -77,24 +71,26 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, ju
       date: format(date, 'yyyy-MM-dd') as any,
       type: data.type,
       notes: data.notes,
+      turno,
     };
-    
     onJustificationSaved(justificationPayload);
     reset();
   };
 
   const isReadOnly = !!justification;
 
+  const turnoDesc = turnoLabel ? ` (horario ${turnoLabel})` : '';
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>{isReadOnly ? 'Detalles de la Justificación' : 'Justificar Registro'}</DialogTitle>
+            <DialogTitle>{isReadOnly ? 'Detalles de la Justificación' : 'Justificar Falta'}</DialogTitle>
             <DialogDescription>
-              {isReadOnly 
-                ? `Viendo la justificación para ${employee.apellidosNombres} por la ${status.toLowerCase()} del día ${date.toLocaleDateString()}.`
-                : `Registrar la justificación para ${employee.apellidosNombres} por la ${status.toLowerCase()} del día ${date.toLocaleDateString()}.`
+              {isReadOnly
+                ? `Justificación para ${employee.apellidosNombres}${turnoDesc} del ${date.toLocaleDateString()}.`
+                : `Registrar justificación para ${employee.apellidosNombres}${turnoDesc} del ${date.toLocaleDateString()}.`
               }
             </DialogDescription>
           </DialogHeader>
@@ -111,9 +107,7 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, ju
                     </SelectTrigger>
                     <SelectContent>
                       {justificationTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -135,12 +129,12 @@ export function JustificationModal({ isOpen, onClose, employee, date, status, ju
           </div>
           <DialogFooter>
             <DialogClose asChild>
-                <Button type="button" variant="secondary">Cerrar</Button>
+              <Button type="button" variant="secondary">Cerrar</Button>
             </DialogClose>
             {!isReadOnly && (
-                <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Guardando...' : 'Guardar Justificación'}
-                </Button>
+              </Button>
             )}
           </DialogFooter>
         </form>
