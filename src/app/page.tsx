@@ -33,6 +33,7 @@ export default function Home() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [selectedSede, setSelectedSede] = useState('todos');
   const sedeFiltroFijo = user?.sedeFiltro ?? null;
+  const sedeExcluida = user?.sedeExcluida ?? null;
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [nameFilter, setNameFilter] = useState('');
   const [dniFilter, setDniFilter] = useState('');
@@ -140,10 +141,11 @@ export default function Home() {
   const filteredEmployees = useMemo(() => mappedEmployees.filter(e => {
     const sedeEfectiva = sedeFiltroFijo ?? selectedSede;
     const sedeMatch = sedeEfectiva === 'todos' || e.nombre_sede === sedeEfectiva;
+    const noExcluida = !sedeExcluida || e.nombre_sede !== sedeExcluida;
     const nameMatch = e.apellidosNombres?.toLowerCase().includes(nameFilter.toLowerCase());
     const dniMatch = e.dni?.includes(dniFilter);
-    return e.activo !== false && sedeMatch && nameMatch && dniMatch;
-  }), [mappedEmployees, selectedSede, sedeFiltroFijo, nameFilter, dniFilter]);
+    return e.activo !== false && sedeMatch && noExcluida && nameMatch && dniMatch;
+  }), [mappedEmployees, selectedSede, sedeFiltroFijo, sedeExcluida, nameFilter, dniFilter]);
 
   const inactiveOrdenes = useMemo(() => {
     const s = new Set<number>();

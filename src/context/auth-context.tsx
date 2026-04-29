@@ -8,6 +8,7 @@ interface AuthUser {
   role: 'admin' | 'registrador' | 'scrum_master';
   scrumMasterId?: string | null;
   sedeFiltro?: string | null;
+  sedeExcluida?: string | null;
 }
 
 interface AuthContextState {
