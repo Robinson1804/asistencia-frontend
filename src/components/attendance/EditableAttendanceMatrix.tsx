@@ -13,7 +13,7 @@ import { CheckCircle, Clock, XCircle, HelpCircle, ChevronLeft, ChevronRight, Fil
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 interface EditableAttendanceMatrixProps {
   employees: Employee[];
@@ -175,62 +175,112 @@ export function EditableAttendanceMatrix({
     onAttendanceChange(employeeDni, dateStr, status);
   };
 
-  const handleExportExcel = () => {
-    // Preparar datos para Excel usando todos los empleados filtrados (no paginados)
-    const excelData = sortedEmployees.map((employee) => {
-      const row: Record<string, string | number> = {
-        'Apellidos y Nombres': employee.apellidosNombres,
-        'DNI': employee.dni,
+  const handleExportExcel = async () => {
+    const statusAbbrev: Record<string, string> = {
+      'Presente': 'P', 'Tardanza': 'T', 'Tardanza Justificada': 'TJ',
+      'Falta': 'F', 'Falta Justificada': 'FJ', 'No Registrado': '-',
+    };
+
+    const dateRange = workingDays.length > 0
+      ? `${format(workingDays[0], 'dd/MM/yyyy')} al ${format(workingDays[workingDays.length - 1], 'dd/MM/yyyy')}`
+      : format(new Date(), 'dd/MM/yyyy');
+
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet('Asistencias');
+
+    const totalCols = 2 + workingDays.length + 1;
+
+    // Fila 1: Título institucional
+    ws.addRow(['INEI - Reporte de Asistencia']);
+    ws.mergeCells(1, 1, 1, totalCols);
+    const titleCell = ws.getCell('A1');
+    titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 28;
+
+    // Fila 2: Período
+    ws.addRow([`Período: ${dateRange}`]);
+    ws.mergeCells(2, 1, 2, totalCols);
+    const periodCell = ws.getCell('A2');
+    periodCell.font = { italic: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5F8A' } };
+    periodCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 20;
+
+    // Fila 3: vacía de separación
+    ws.addRow([]);
+
+    // Fila 4: Cabecera
+    const dayHeaders = workingDays.map(day => format(day, 'EEE d', { locale: es }));
+    const headerRow = ws.addRow(['Apellidos y Nombres', 'DNI', ...dayHeaders, '% Ausencias']);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+        bottom: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+        left: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+        right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
       };
+    });
+    ws.getRow(4).height = 22;
 
-      // Agregar columnas por cada día
-      workingDays.forEach((day) => {
+    // Filas de datos
+    sortedEmployees.forEach((employee, idx) => {
+      const dayValues = workingDays.map(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
-        const dayHeader = format(day, 'EEE d', { locale: es });
-        const originalStatus = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
-        const currentStatus = pendingChanges[employee.dni]?.[dateStr] || originalStatus;
-
-        // Usar abreviaciones para el Excel
-        const statusAbbrev: Record<string, string> = {
-          'Presente': 'P',
-          'Tardanza': 'T',
-          'Tardanza Justificada': 'TJ',
-          'Falta': 'F',
-          'Falta Justificada': 'FJ',
-          'No Registrado': '-',
-        };
-        row[dayHeader] = statusAbbrev[currentStatus] || currentStatus;
+        const original = attendanceMatrix[employee.dni]?.[dateStr] || 'No Registrado';
+        const status = pendingChanges[employee.dni]?.[dateStr] || original;
+        return statusAbbrev[status] || status;
       });
+      const absencePct = `${calculateAbsencePercentage(employee.dni).toFixed(1)}%`;
+      const dataRow = ws.addRow([employee.apellidosNombres, employee.dni, ...dayValues, absencePct]);
 
-      // Agregar columna de % Ausencias
-      const absencePercentage = calculateAbsencePercentage(employee.dni);
-      row['% Ausencias'] = `${absencePercentage.toFixed(1)}%`;
-
-      return row;
+      const rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF0F4FA';
+      dataRow.eachCell((cell, colNumber) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+        cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'hair', color: { argb: 'FFDDDDDD' } },
+          bottom: { style: 'hair', color: { argb: 'FFDDDDDD' } },
+          left: { style: 'hair', color: { argb: 'FFDDDDDD' } },
+          right: { style: 'hair', color: { argb: 'FFDDDDDD' } },
+        };
+        // Colorear abreviaciones
+        const val = String(cell.value ?? '');
+        if (val === 'P') cell.font = { color: { argb: 'FF16A34A' }, bold: true };
+        else if (val === 'F') cell.font = { color: { argb: 'FFDC2626' }, bold: true };
+        else if (val === 'FJ') cell.font = { color: { argb: 'FFEA580C' } };
+        else if (val === 'T') cell.font = { color: { argb: 'FFD97706' }, bold: true };
+        else if (val === 'TJ') cell.font = { color: { argb: 'FFD97706' } };
+      });
     });
 
-    // Crear workbook y worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Asistencias');
+    // Fila de leyenda al final
+    ws.addRow([]);
+    const legendRow = ws.addRow(['Leyenda: P=Presente  F=Falta  FJ=Falta Justificada  T=Tardanza  TJ=Tardanza Justificada  -=Sin registro']);
+    ws.mergeCells(legendRow.number, 1, legendRow.number, totalCols);
+    const legendCell = ws.getCell(`A${legendRow.number}`);
+    legendCell.font = { italic: true, size: 9, color: { argb: 'FF555555' } };
+    legendCell.alignment = { horizontal: 'left' };
 
-    // Ajustar ancho de columnas
-    const colWidths = [
-      { wch: 35 }, // Apellidos y Nombres
-      { wch: 12 }, // DNI
-      ...workingDays.map(() => ({ wch: 8 })), // Días
-      { wch: 12 }, // % Ausencias
-    ];
-    worksheet['!cols'] = colWidths;
+    // Ancho de columnas
+    ws.getColumn(1).width = 38;
+    ws.getColumn(2).width = 13;
+    workingDays.forEach((_, i) => { ws.getColumn(3 + i).width = 7; });
+    ws.getColumn(3 + workingDays.length).width = 13;
 
-    // Generar nombre del archivo con fecha
-    const dateRange = workingDays.length > 0
-      ? `${format(workingDays[0], 'dd-MM-yyyy')}_${format(workingDays[workingDays.length - 1], 'dd-MM-yyyy')}`
-      : format(new Date(), 'dd-MM-yyyy');
-    const fileName = `Asistencias_${dateRange}.xlsx`;
-
-    // Descargar archivo
-    XLSX.writeFile(workbook, fileName);
+    // Descargar
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Asistencias_${format(workingDays[0] ?? new Date(), 'dd-MM-yyyy')}_${format(workingDays[workingDays.length - 1] ?? new Date(), 'dd-MM-yyyy')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (

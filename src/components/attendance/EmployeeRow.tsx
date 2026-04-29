@@ -230,34 +230,38 @@ export function EmployeeRow({
   );
 
   const statusButtons = (isMobile = false) => (
-    <div className={cn("flex gap-2 justify-center", isMobile && "flex-wrap justify-start")}>
-      {statusOptions.map(option => {
-        const isSelected = currentStatus === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => !readOnly && onStatusChange(employee.id, option.value)}
-            disabled={readOnly}
-            className={cn(
-              "flex flex-col items-center justify-center rounded-md border-2 font-medium transition-all duration-200",
-              isMobile ? "h-20 gap-2 min-w-[70px] text-xs p-3" : "h-16 min-w-[80px] text-xs p-2",
-              isSelected
-                ? `${option.borderColor} bg-accent/10 shadow-inner`
-                : "border-muted text-muted-foreground bg-popover hover:bg-accent/10",
-              readOnly && "cursor-default opacity-75"
-            )}
-          >
-            <option.icon className={cn(
-              "transition-colors",
-              isMobile ? "h-6 w-6" : "h-5 w-5 mb-1",
-              isSelected ? option.color : ""
-            )} />
-            {option.value}
-          </button>
-        );
-      })}
-      {(isFalta || (readOnly && currentJustification)) && justificationButton(isMobile)}
+    <div className={cn("flex items-center gap-3", isMobile && "flex-wrap")}>
+      <div className={cn("flex gap-2", isMobile ? "flex-wrap" : "justify-center")}>
+        {statusOptions.map(option => {
+          const isSelected = currentStatus === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => !readOnly && onStatusChange(employee.id, option.value)}
+              disabled={readOnly}
+              className={cn(
+                "flex flex-col items-center justify-center rounded-md border-2 font-medium transition-all duration-200",
+                isMobile ? "h-20 gap-2 min-w-[70px] text-xs p-3" : "h-16 min-w-[80px] text-xs p-2",
+                isSelected
+                  ? `${option.borderColor} bg-accent/10 shadow-inner`
+                  : "border-muted text-muted-foreground bg-popover hover:bg-accent/10",
+                readOnly && "cursor-default opacity-75"
+              )}
+            >
+              <option.icon className={cn(
+                "transition-colors",
+                isMobile ? "h-6 w-6" : "h-5 w-5 mb-1",
+                isSelected ? option.color : ""
+              )} />
+              {option.value}
+            </button>
+          );
+        })}
+      </div>
+      <div className={isMobile ? "min-w-[64px]" : "w-[64px]"}>
+        {(isFalta || (readOnly && currentJustification)) && justificationButton(isMobile)}
+      </div>
     </div>
   );
 
