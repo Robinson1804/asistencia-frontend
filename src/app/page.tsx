@@ -32,6 +32,7 @@ export default function Home() {
   const [sedes, setSedes] = useState<any[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [selectedSede, setSelectedSede] = useState('todos');
+  const sedeFiltroFijo = user?.sedeFiltro ?? null;
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [nameFilter, setNameFilter] = useState('');
   const [dniFilter, setDniFilter] = useState('');
@@ -137,11 +138,12 @@ export default function Home() {
   })), [employees]);
 
   const filteredEmployees = useMemo(() => mappedEmployees.filter(e => {
-    const sedeMatch = selectedSede === 'todos' || e.nombre_sede === selectedSede;
+    const sedeEfectiva = sedeFiltroFijo ?? selectedSede;
+    const sedeMatch = sedeEfectiva === 'todos' || e.nombre_sede === sedeEfectiva;
     const nameMatch = e.apellidosNombres?.toLowerCase().includes(nameFilter.toLowerCase());
     const dniMatch = e.dni?.includes(dniFilter);
     return e.activo !== false && sedeMatch && nameMatch && dniMatch;
-  }), [mappedEmployees, selectedSede, nameFilter, dniFilter]);
+  }), [mappedEmployees, selectedSede, sedeFiltroFijo, nameFilter, dniFilter]);
 
   const inactiveOrdenes = useMemo(() => {
     const s = new Set<number>();
@@ -326,13 +328,16 @@ export default function Home() {
             </div>
           </div>
           <div className="flex md:hidden gap-2 mb-2">
-            <Select value={selectedSede} onValueChange={setSelectedSede}>
-              <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas las sedes</SelectItem>
-                {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {sedeFiltroFijo
+              ? <span className="flex-1 h-8 text-xs flex items-center px-2 rounded border bg-muted font-medium">{sedeFiltroFijo}</span>
+              : <Select value={selectedSede} onValueChange={setSelectedSede}>
+                  <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas las sedes</SelectItem>
+                    {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+            }
             <DatePicker date={selectedDate} setDate={handleDateChange} />
           </div>
           <div className="flex md:hidden gap-1">
@@ -374,16 +379,23 @@ export default function Home() {
             <h2 className="text-3xl font-bold">Lista de Personal</h2>
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2"><Label>Fecha:</Label><DatePicker date={selectedDate} setDate={handleDateChange} /></div>
-              <div className="flex items-center gap-2">
-                <Label>Sede:</Label>
-                <Select value={selectedSede} onValueChange={setSelectedSede}>
-                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todas las sedes</SelectItem>
-                    {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {!sedeFiltroFijo && (
+                <div className="flex items-center gap-2">
+                  <Label>Sede:</Label>
+                  <Select value={selectedSede} onValueChange={setSelectedSede}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todas las sedes" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todas las sedes</SelectItem>
+                      {sedes.filter((s: any) => s.activo !== false).map(s => <SelectItem key={s.id} value={s.nombre_sede}>{s.nombre_sede}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {sedeFiltroFijo && (
+                <span className="text-sm font-medium px-3 py-1 rounded bg-primary/10 text-primary border border-primary/20">
+                  Sede: {sedeFiltroFijo}
+                </span>
+              )}
               <Button onClick={handleSaveAttendances} disabled={isSaving} className="min-w-[200px]">
                 <Save className="mr-2 h-4 w-4" />{isSaving ? 'Guardando...' : 'Guardar Registros'}
               </Button>
