@@ -33,7 +33,9 @@ export default function Home() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [selectedSede, setSelectedSede] = useState('todos');
   const sedeFiltroFijo = user?.sedeFiltro ?? null;
-  const sedeExcluida = user?.sedeExcluida ?? null;
+  const sedesExcluidas = useMemo(() =>
+    user?.sedeExcluida ? user.sedeExcluida.split(',').map(s => s.trim()) : [],
+  [user?.sedeExcluida]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [nameFilter, setNameFilter] = useState('');
   const [dniFilter, setDniFilter] = useState('');
@@ -141,11 +143,11 @@ export default function Home() {
   const filteredEmployees = useMemo(() => mappedEmployees.filter(e => {
     const sedeEfectiva = sedeFiltroFijo ?? selectedSede;
     const sedeMatch = sedeEfectiva === 'todos' || e.nombre_sede === sedeEfectiva;
-    const noExcluida = !sedeExcluida || e.nombre_sede !== sedeExcluida;
+    const noExcluida = sedesExcluidas.length === 0 || !sedesExcluidas.includes(e.nombre_sede);
     const nameMatch = e.apellidosNombres?.toLowerCase().includes(nameFilter.toLowerCase());
     const dniMatch = e.dni?.includes(dniFilter);
     return e.activo !== false && sedeMatch && noExcluida && nameMatch && dniMatch;
-  }), [mappedEmployees, selectedSede, sedeFiltroFijo, sedeExcluida, nameFilter, dniFilter]);
+  }), [mappedEmployees, selectedSede, sedeFiltroFijo, sedesExcluidas, nameFilter, dniFilter]);
 
   const inactiveOrdenes = useMemo(() => {
     const s = new Set<number>();
